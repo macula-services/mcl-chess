@@ -27,16 +27,22 @@ handled(_State, {error, _} = Error) -> Error.
 handle(State, Cmd) ->
     withdrawn(not game_state:is_archived(State),
               game_state:initiator_node_id(State) =:= withdraw_game_v1:get_caller(Cmd),
-              game_state:is_started(State), State, Cmd).
+              game_state:is_started(State), game_state:is_ended(State), State, Cmd).
 
-withdrawn(false, _Initiator, _Started, _State, _Cmd) ->
+withdrawn(false, _Initiator, _Started, _Ended, _State, _Cmd) ->
     {error, game_archived};
-withdrawn(_Archived, false, _Started, _State, _Cmd) ->
+withdrawn(_Archived, false, _Started, _Ended, _State, _Cmd) ->
     {error, not_initiator};
-withdrawn(_Archived, _Initiator, true, _State, _Cmd) ->
-    %% A started game is ended, not withdrawn: that path is WP5's.
+withdrawn(_Archived, _Initiator, true, _Ended, _State, _Cmd) ->
+    %% A started game is ended, not withdrawn: that is the end slice's path.
     {error, game_started};
-withdrawn(_Archived, _Initiator, false, State, Cmd) ->
+%% AND A GAME THAT WAS PLAYED IS NOT CLEARED EITHER. Ending clears STARTED, so
+%% without this clause an initiator could withdraw a game that had actually been
+%% played and ended it: the archive would replace a recorded outcome with
+%% `withdrawn`, and the death slice's retention window (WP6) would be bypassed.
+withdrawn(_Archived, _Initiator, false, true, _State, _Cmd) ->
+    {error, game_ended};
+withdrawn(_Archived, _Initiator, false, false, State, Cmd) ->
     events(State, Cmd).
 
 events(State, Cmd) ->

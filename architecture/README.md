@@ -56,7 +56,7 @@ Legend, the same in all three diagrams: amber is the element in scope, lavender-
 | `start_game/` | Desk, CMD, internal | `game_started_v1` once both seats are filled. Dispatched by a policy, never served on the wire | built (WP3) |
 | `submit_move/` | Desk, CMD | `move_played_v1` for a legal move by the seat to move and `move_refused_v1` (the evidence class) for a seat holder's foul attempt. Charges the mover's clock, advances the halfmove count and counts the repetition | built (WP5) |
 | `resign_game/` | Desk, CMD | `game_ended_v1` with outcome `forfeit` and reason `resignation`, the opponent named as the winner | built (WP5) |
-| `withdraw_game/` | Desk, CMD | `game_archived_v1` with reason `withdrawn`, pre-start only: a game that never began is not an end | built (WP2) |
+| `withdraw_game/` | Desk, CMD | `game_archived_v1` with reason `withdrawn`, pre-start only: a game that never began is not an end, and a game that ended is the retention slice's to archive | built (WP2); refuses a started or ended game, the latter since WP5 |
 | `end_game/` | Desk, CMD, internal | `game_ended_v1`: the one way a game ends, whether a policy, a resignation or (WP6) a flagged clock triggered it. Refuses a winner the game never admitted | built (WP5) |
 | `flag_clock/` | Desk, CMD, internal | `clock_flagged_v1`, dispatched by the clock instance when a deadline fires | planned (WP6) |
 | `archive_game/` | Desk, CMD, internal | `game_archived_v1` after the retention window: the death slice | the desk and its retention policy arrive with WP6, which is where the design of record puts the window; the event module is already built and shared with `withdraw_game/` |

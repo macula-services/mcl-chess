@@ -22,7 +22,8 @@ store_test_() ->
       {timeout, 60, fun a_stranger_cannot_resign_a_game/0},
       {timeout, 60, fun an_archived_game_does_not_end/0},
       {timeout, 60, fun the_end_desk_names_a_winner_the_game_admitted/0},
-      {timeout, 60, fun a_draw_names_nobody/0}]}.
+      {timeout, 60, fun a_draw_names_nobody/0},
+      {timeout, 60, fun an_ended_game_cannot_be_withdrawn/0}]}.
 
 the_opponent_wins_when_a_player_resigns() ->
     GameId = started(),
@@ -113,6 +114,18 @@ a_draw_names_nobody() ->
                                      reason => checkmate, fen_after => <<>>,
                                      ply => 0, clocks => #{},
                                      status => 9})).
+
+%% Ending clears STARTED, so an ended game looks unstarted to the withdraw
+%% desk. Without its own guard the initiator could archive a game that had been
+%% played, replacing an outcome with `withdrawn` and bypassing the retention
+%% slice that owns the death of a played game.
+an_ended_game_cannot_be_withdrawn() ->
+    GameId = started(),
+    {ok, _, _, _} = resign(GameId, ?ALICE),
+    {error, game_ended} = withdraw_game_api:handle(#{game_id => GameId,
+                                                     caller => ?ALICE}),
+    ?assertEqual([], events(GameId, <<"game_archived_v1">>)),
+    ?assertEqual(1, length(events(GameId, <<"game_ended_v1">>))).
 
 %%====================================================================
 %% Helpers

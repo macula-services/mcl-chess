@@ -33,6 +33,11 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   the counter, `game_state` keeps the uncapped count, and `move_played_v1`
   carries it. `position_hash/1` was added so the position a game starts from is
   in the repetition history too.
+- **A withdraw cannot clear an ended game.** Ending clears `STARTED`, so an
+  ended game looked unstarted to the withdraw desk, and the initiator could have
+  archived a game that had actually been played: the archive would have replaced
+  a recorded outcome with `withdrawn` and bypassed the retention slice that owns
+  the death of a played game. `withdraw_game` now refuses `game_ended`.
 - **The move and end projections:** the board, `to_move`, the clocks and the
   halfmove count are projected per move, the move list lives in its own
   `moves` table keyed on `(game_id, ply)` so a replay replaces rather than
