@@ -116,5 +116,18 @@
         %% test compares the two.
         {store_id,               mcl_chess_store}
     ]},
+    %% ==========================================================================
+    %% HOW LONG AN ENDED GAME IS KEPT BEFORE THE DEATH SLICE ARCHIVES IT
+    %% ==========================================================================
+    %%
+    %% One day. Long enough that an agent, its operator or a reviewer can still
+    %% read a finished game, and short enough that the store does not keep every
+    %% game forever (mcl-chess#1, open question 2). The retention instance reads
+    %% this when `game_ended_v1' arrives; a game ended before this was set is
+    %% archived from its own `at_ms', so lowering the number archives the backlog
+    %% on the next boot rather than leaving it.
+    {play_games, [
+        {game_retention_ms, 86400000}
+    ]},
     {kernel, [{logger_level, info}]}
 ].

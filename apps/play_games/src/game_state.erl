@@ -20,9 +20,10 @@
 -export([position/1, to_move/1, ply/1, clocks/1, halfmove_clock/1]).
 -export([position_hash/1, hash_history/1, repetition_count/1]).
 -export([advance_hashes/3, occurrences/2, at_ms/1, charge_turn/4]).
+-export([remaining_ms/3, expired/3, flagged_node_id/1]).
 -export([repetition_draw/0]).
 -export([outcome/1, winner_node_id/1, end_reason/1]).
--export([seat/2, is_seated/2, both_seats_filled/1]).
+-export([seat/2, is_seated/2, both_seats_filled/1, colour_of/2]).
 -export([colour_key/1, colour_wire/1]).
 -export([record_refusal/2, refusal_count/2, may_record_refusal/2,
          max_recorded_refusals/0]).
@@ -114,6 +115,16 @@ apply_event(State, #{event_type := <<"move_played_v1">>} = Event) ->
 %% move cannot shorten the mover's clock.
 apply_event(State, #{event_type := <<"move_refused_v1">>} = Event) ->
     record_refusal(State, maps:get(player_node_id, event_data(Event)));
+%% A flagged clock is a fact about the clock, not a move: the position and the
+%% ply stand, the flagged player's clock is at zero, and the game is about to
+%% end in the same command.
+apply_event(State, #{event_type := <<"clock_flagged_v1">>} = Event) ->
+    Data = event_data(Event),
+    State#game_state{
+        clocks = maps:get(clocks, Data, State#game_state.clocks),
+        status = maps:get(status, Data, State#game_state.status),
+        flagged_node_id = maps:get(player_node_id, Data, <<>>),
+        at_ms = maps:get(at_ms, Data, State#game_state.at_ms)};
 apply_event(State, #{event_type := <<"game_ended_v1">>} = Event) ->
     Data = event_data(Event),
     State#game_state{
@@ -145,7 +156,24 @@ apply_event(State, _Event) ->
 -spec charge_turn(t(), white | black, non_neg_integer(), non_neg_integer()) -> map().
 charge_turn(State, Colour, At, ExtraMs) ->
     Clocks = clocks(State),
-    charged(maps:get(Colour, Clocks) - elapsed(State, At), ExtraMs, Clocks, Colour).
+    charged(remaining_ms(State, Colour, At), ExtraMs, Clocks, Colour).
+
+%% @doc What is left on this player's clock at `At', which may be negative.
+%%
+%% The turn began at the state's own `at_ms' (the last event that changed the
+%% game), so the elapsed time is deducible from the record rather than read from
+%% a wall clock. One definition, because two callers need the same number: the
+%% charge a turn pays, and the check that refuses a move played on a clock that
+%% has already run out (the clock flag's counterpart, mcl-chess#2 WP6).
+-spec remaining_ms(t(), white | black, non_neg_integer()) -> integer().
+remaining_ms(State, Colour, At) ->
+    maps:get(Colour, clocks(State)) - elapsed(State, At).
+
+%% @doc Whether this player's clock has run out at `At'. Zero is out: a turn
+%% that has used exactly its last millisecond has nothing left to play with.
+-spec expired(t(), white | black, non_neg_integer()) -> boolean().
+expired(State, Colour, At) ->
+    remaining_ms(State, Colour, At) =< 0.
 
 elapsed(State, At) ->
     max(0, At - at_ms(State)).
@@ -187,6 +215,7 @@ to_map(#game_state{} = State) ->
       winner_node_id => State#game_state.winner_node_id,
       end_reason => State#game_state.end_reason,
       initiator_node_id => State#game_state.initiator_node_id,
+      flagged_node_id => State#game_state.flagged_node_id,
       refusals => State#game_state.refusals,
       at_ms => State#game_state.at_ms}.
 
@@ -208,6 +237,10 @@ from_map(#{game_id := GameId} = Map) ->
         winner_node_id = maps:get(winner_node_id, Map, <<>>),
         end_reason = maps:get(end_reason, Map, none),
         initiator_node_id = maps:get(initiator_node_id, Map, <<>>),
+        %% Defaulted for the same reason as `refusals': a snapshot written
+        %% before the clock existed still restores, and a state that forgot a
+        %% flag would let the same player be flagged twice.
+        flagged_node_id = maps:get(flagged_node_id, Map, <<>>),
         %% Defaulted, so a snapshot written before this field existed still
         %% restores: an aggregate that forgot the count would start recording
         %% again from zero.
@@ -312,6 +345,10 @@ winner_node_id(#game_state{winner_node_id = Winner}) -> Winner.
 -spec end_reason(t()) -> atom().
 end_reason(#game_state{end_reason = Reason}) -> Reason.
 
+%% @doc The player whose clock ran out, or the empty binary when none did.
+-spec flagged_node_id(t()) -> binary().
+flagged_node_id(#game_state{flagged_node_id = NodeId}) -> NodeId.
+
 %% @doc How many occurrences of one position end a game automatically: the
 %% fivefold draw, the one automatic draw the rules engine cannot see because it
 %% is not a function of one position.
@@ -333,6 +370,16 @@ is_seated(#game_state{seats = Seats}, NodeId) ->
 -spec both_seats_filled(t()) -> boolean().
 both_seats_filled(#game_state{seats = Seats}) ->
     not lists:member(<<>>, maps:values(Seats)).
+
+%% @doc The colour this node holds, or `undefined' when it holds none. One
+%% definition, used by every desk that has to know which side its caller is on.
+-spec colour_of(t(), binary()) -> white | black | undefined.
+colour_of(#game_state{seats = Seats}, NodeId) ->
+    held(NodeId, Seats).
+
+held(Caller, #{white := Caller}) -> white;
+held(Caller, #{black := Caller}) -> black;
+held(_Caller, _Seats) -> undefined.
 
 %% @doc The wire's colour text (`<<"w">>'/`<<"b">>') as the aggregate's key.
 -spec colour_key(binary()) -> white | black | invalid.

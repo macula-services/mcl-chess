@@ -31,6 +31,9 @@ init([]) ->
            projection(seat_claimed_v1_to_sqlite_games),
            projection(game_started_v1_to_sqlite_games),
            projection(move_played_v1_to_sqlite_games),
+           %% The flag precedes the end of the same command, so it must be
+           %% projected before the end writes the outcome over it.
+           projection(clock_flagged_v1_to_sqlite_games),
            projection(game_ended_v1_to_sqlite_games),
            projection(game_archived_v1_to_sqlite_games)]}}.
 

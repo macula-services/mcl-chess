@@ -6,6 +6,7 @@
 %%   game_started_v1   on `<realm>/mcl-chess/chess/game/game_started_v1'
 %%   move_played_v1    on `<realm>/mcl-chess/chess/game/move_played_v1'
 %%   move_refused_v1   on `<realm>/mcl-chess/chess/game/move_refused_v1'
+%%   clock_flagged_v1  on `<realm>/mcl-chess/chess/game/clock_flagged_v1'
 %%   game_ended_v1     on `<realm>/mcl-chess/chess/game/game_ended_v1'
 %%   game_archived_v1  on `<realm>/mcl-chess/chess/game/game_archived_v1'
 %%
@@ -19,7 +20,7 @@
 -module(mcl_chess_facts).
 
 -export([game_initiated/1, seat_claimed/1, seat_refused/1, game_started/1,
-         move_played/1, move_refused/1, game_ended/1,
+         move_played/1, move_refused/1, clock_flagged/1, game_ended/1,
          game_archived/1, to_wire/1, topic/2, realm_name/0]).
 
 -define(ORG, <<"mcl-chess">>).
@@ -98,6 +99,16 @@ move_refused(Event) ->
                                   clocks, status, at_ms]]))
         #{reason => text(field(reason, Event))}.
 
+%% @doc The fact for a clock_flagged_v1 event: whose clock ran out, and the
+%% clocks as they stand at the moment the flag was recorded.
+%%
+%% It is published before the `game_ended_v1' of the same command, so a consumer
+%% reading the pair can tell a loss on time from any other forfeit.
+-spec clock_flagged(map()) -> map().
+clock_flagged(Event) ->
+    maps:from_list([{Field, field(Field, Event)}
+                    || Field <- [game_id, player_node_id, clocks, status, at_ms]]).
+
 %% @doc The fact for a game_ended_v1 event: who won, why, and the final
 %% position. `winner_node_id' is absent for a draw in the sense that it is the
 %% empty text, not a missing key: a consumer can switch on `outcome' alone.
@@ -132,7 +143,7 @@ to_wire(Other) -> Other.
 
 -spec topic(binary(), game_initiated | seat_claimed | seat_refused |
                          game_started | move_played | move_refused |
-                         game_ended | game_archived) -> binary().
+                         clock_flagged | game_ended | game_archived) -> binary().
 topic(RealmName, game_initiated) ->
     macula_topic:app_fact(RealmName, ?ORG, ?APP, ?DOMAIN, <<"game_initiated">>,
                           ?VERSION);
@@ -150,6 +161,9 @@ topic(RealmName, move_played) ->
                           ?VERSION);
 topic(RealmName, move_refused) ->
     macula_topic:app_fact(RealmName, ?ORG, ?APP, ?DOMAIN, <<"move_refused">>,
+                          ?VERSION);
+topic(RealmName, clock_flagged) ->
+    macula_topic:app_fact(RealmName, ?ORG, ?APP, ?DOMAIN, <<"clock_flagged">>,
                           ?VERSION);
 topic(RealmName, game_ended) ->
     macula_topic:app_fact(RealmName, ?ORG, ?APP, ?DOMAIN, <<"game_ended">>,

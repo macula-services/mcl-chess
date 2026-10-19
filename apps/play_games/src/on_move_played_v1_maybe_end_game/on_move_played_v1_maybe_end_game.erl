@@ -12,10 +12,10 @@
 %%
 %% THE EVENT IS ENOUGH TO DECIDE. `move_played_v1' carries the position, the
 %% referee's own halfmove count and the repetition count of that position, so
-%% this handler reads one event and no read model: the rules engine answers
-%% checkmate, stalemate, insufficient material and the 75 move rule, and the
-%% fivefold draw is the count in the event. The 50 move and threefold draws stay
-%% v2 claims, so nothing here ends a game on them.
+%% this handler reads one event and no read model: `game_verdict:after_move/1'
+%% asks the rules engine and applies the repetition count, and the same module
+%% answers the flag desk's version of the question. The 50 move and threefold
+%% draws stay v2 claims, so nothing here ends a game on them.
 -module(on_move_played_v1_maybe_end_game).
 
 -behaviour(evoq_event_handler).
@@ -31,37 +31,15 @@ init(_Config) ->
 
 handle_event(_EventType, Event, _Metadata, State) ->
     Data = maps:get(data, Event, Event),
-    ended(verdict(Data), Data),
+    ended(game_verdict:after_move(Data), Data),
     {ok, State}.
 
-verdict(Data) ->
-    mcl_chess_rules:status(maps:get(fen_after, Data), maps:get(halfmove_clock, Data)).
-
-%% The rules engine's veto over the count, in its own order: a checkmate on the
-%% move that reached the counter is a win, and a position that is dead on its
-%% own terms reports that reason rather than the counter's.
-ended(active, Data) ->
-    repeated(maps:get(repetitions, Data), Data);
-ended(checkmate, Data) ->
-    dispatch(Data, #{outcome => winner,
-                     winner_node_id => maps:get(player_node_id, Data),
-                     reason => checkmate});
-ended(stalemate, Data) ->
-    dispatch(Data, #{outcome => draw, reason => stalemate});
-ended(insufficient_material, Data) ->
-    dispatch(Data, #{outcome => draw, reason => insufficient_material});
-ended(seventy_five_moves, Data) ->
-    dispatch(Data, #{outcome => draw, reason => seventy_five_moves});
+ended(active, _Data) ->
+    ok;
+ended({over, Decision}, Data) ->
+    dispatch(Data, Decision);
 ended({error, invalid_fen}, Data) ->
     warn_not_judged(Data, invalid_fen).
-
-repeated(Repetitions, Data) ->
-    reached(Repetitions >= game_state:repetition_draw(), Data).
-
-reached(true, Data) ->
-    dispatch(Data, #{outcome => draw, reason => fivefold_repetition});
-reached(false, _Data) ->
-    ok.
 
 dispatch(Data, Decision) ->
     dispatched(end_game_api:handle(Decision#{game_id => maps:get(game_id, Data)}),

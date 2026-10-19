@@ -47,6 +47,12 @@ execute(State, #{command_type := resign_game_v1} = Payload) ->
 execute(State, #{command_type := end_game_v1} = Payload) ->
     guard_then(fun(_S, _P) -> ok end, State, Payload,
                fun maybe_end_game:handle_from_map/2);
+execute(State, #{command_type := flag_clock_v1} = Payload) ->
+    guard_then(fun(_S, _P) -> ok end, State, Payload,
+               fun maybe_flag_clock:handle_from_map/2);
+execute(State, #{command_type := archive_game_v1} = Payload) ->
+    guard_then(fun(_S, _P) -> ok end, State, Payload,
+               fun maybe_archive_game:handle_from_map/2);
 execute(_State, _Unknown) ->
     {error, unknown_command}.
 

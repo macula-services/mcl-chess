@@ -39,6 +39,13 @@
                        | seventy_five_moves | fivefold_repetition
                        | clock_flag | resignation | withdrawn,
     initiator_node_id = <<>> :: binary(),
+    %% The player whose clock ran out, if one did. Recorded so a second flag
+    %% cannot append a second clock_flagged_v1 for the same player: the event
+    %% carries the remaining time as zero, which is exactly what an about-to-flag
+    %% player's clock already showed, so the clocks alone cannot tell the two
+    %% apart. A flag ends the game in the same command, so this holds one player
+    %% at most.
+    flagged_node_id = <<>> :: binary(),
     %% Recorded refusals per node id: the one piece of state that is not in the
     %% game itself, and the thing that bounds the evidence stream. Replay
     %% rebuilds it from the events, so it is part of the state, not of a desk.

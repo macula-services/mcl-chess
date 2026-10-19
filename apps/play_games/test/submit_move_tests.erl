@@ -197,6 +197,45 @@ charge_turn_test() ->
     ?assertEqual(#{white => 0, black => 60000},
                  game_state:charge_turn(State, white, 61000, 1000)).
 
+%% A MOVE ON AN OVERDRAWN CLOCK IS REFUSED, NOT CLAMPED AND PLAYED (mcl-chess#2,
+%% gate answer 4): a player who has run out cannot play on, and the attempt is
+%% recorded like any other foul by a seat holder. The clock instance flags the
+%% same turn a moment later; this is the same question asked of the same state,
+%% which is why the two cannot disagree.
+a_move_on_an_overdrawn_clock_is_refused_test() ->
+    State = started_at(erlang:system_time(millisecond) - 2000),
+    {ok, Cmd} = submit_move_v1:new(#{game_id => ?GAME, caller => ?ALICE,
+                                     move => <<"e2e4">>}),
+    {ok, [Refused]} = maybe_submit_move:handle(State, Cmd),
+    ?assertEqual(<<"move_refused_v1">>, maps:get(event_type, Refused)),
+    ?assertEqual(time_expired, maps:get(reason, Refused)),
+    ?assertEqual(?ALICE, maps:get(player_node_id, Refused)).
+
+%% A move inside the time left is played, and its clock is charged the turn.
+a_move_inside_the_time_left_is_played_test() ->
+    State = started_at(erlang:system_time(millisecond)),
+    {ok, Cmd} = submit_move_v1:new(#{game_id => ?GAME, caller => ?ALICE,
+                                     move => <<"e2e4">>}),
+    {ok, [Played]} = maybe_submit_move:handle(State, Cmd),
+    ?assertEqual(<<"move_played_v1">>, maps:get(event_type, Played)),
+    ?assertMatch(#{white := White} when White =< 1000,
+                 maps:get(clocks, Played)).
+
+%% A game that started at `At', with white to move and 1 s each: a test never
+%% sleeps for the clock to run out, it moves the start into the past instead.
+started_at(At) ->
+    game_state:apply_event(game_state:new(?GAME),
+                           #{event_type => <<"game_started_v1">>,
+                             white_node_id => ?ALICE,
+                             black_node_id => ?BOB,
+                             position => ?START,
+                             position_hash => 7,
+                             to_move => <<"w">>,
+                             ply => 0,
+                             clocks => #{white => 1000, black => 1000},
+                             status => 5,
+                             at_ms => At}).
+
 %% The counter and the history are folded from the event, not recomputed, so a
 %% replay arrives at the same state the live game did. An irreversible move
 %% starts the history again, because no earlier position can recur.
@@ -218,6 +257,7 @@ started() ->
     GameId = born(),
     {ok, _, _, _} = claim(GameId, ?ALICE, <<"w">>),
     {ok, _, _, _} = claim(GameId, ?BOB, <<"b">>),
+    %% No policy runs in this suite, so the start is dispatched here.
     {ok, _, _, _} = start_game_api:handle(#{game_id => GameId}),
     GameId.
 

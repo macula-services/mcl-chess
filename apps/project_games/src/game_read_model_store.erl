@@ -29,7 +29,8 @@
 %% record.
 %%
 %% `halfmove_clock' is the referee's own count; `outcome', `end_reason',
-%% `winner_node_id' and `ended_at' stay empty until the end slice runs. The move
+%% `winner_node_id' and `ended_at' stay empty until the end slice runs, and
+%% `flagged_node_id' empty until a clock runs out. The move
 %% list is a TABLE of its own, keyed on `(game_id, ply)`, because a list grown by
 %% concatenation is not idempotent under a replay, and a replay is exactly what a
 %% projection has to survive.
@@ -53,6 +54,7 @@ schema() ->
      " outcome       TEXT NOT NULL DEFAULT '',"
      " end_reason    TEXT NOT NULL DEFAULT '',"
      " winner_node_id TEXT NOT NULL DEFAULT '',"
+     " flagged_node_id TEXT NOT NULL DEFAULT '',"
      " initiator     TEXT NOT NULL,"
      " archive_reason TEXT,"
      " initiated_at  INTEGER NOT NULL,"
@@ -81,6 +83,7 @@ migrations() ->
      {"outcome", "ALTER TABLE games ADD COLUMN outcome TEXT NOT NULL DEFAULT ''"},
      {"end_reason", "ALTER TABLE games ADD COLUMN end_reason TEXT NOT NULL DEFAULT ''"},
      {"winner_node_id", "ALTER TABLE games ADD COLUMN winner_node_id TEXT NOT NULL DEFAULT ''"},
+     {"flagged_node_id", "ALTER TABLE games ADD COLUMN flagged_node_id TEXT NOT NULL DEFAULT ''"},
      {"ended_at", "ALTER TABLE games ADD COLUMN ended_at INTEGER"}].
 
 -spec start_link(string()) -> {ok, pid()} | {error, term()}.

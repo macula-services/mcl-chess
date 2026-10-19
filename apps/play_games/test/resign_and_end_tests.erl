@@ -140,6 +140,7 @@ started() ->
     GameId = born(),
     {ok, _, _, _} = claim(GameId, ?ALICE, <<"w">>),
     {ok, _, _, _} = claim(GameId, ?BOB, <<"b">>),
+    %% No policy runs in this suite, so the start is dispatched here.
     {ok, _, _, _} = start_game_api:handle(#{game_id => GameId}),
     GameId.
 

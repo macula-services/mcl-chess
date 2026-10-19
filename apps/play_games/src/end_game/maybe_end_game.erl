@@ -9,6 +9,16 @@
 %% THE WINNER MUST BE ONE OF THE SEATS. The command comes from a policy this
 %% service runs, and the handler still checks it: an end naming a stranger would
 %% put a node id in the record that the game never admitted.
+%%
+%% A FLAG RE-JUDGES THE POSITION FIRST (mcl-chess#2, WP6). The clock's flag is
+%% the last thing that will ever look at a game, so it is where a game left
+%% `started` by a crash - a mating move whose end policy never ran - comes back
+%% to be ended. `game_verdict' answers with the position's own verdict, and a
+%% decided position is recorded as what it is: a mate is a checkmate, not a loss
+%% on time. A live position is a forfeit, and the loser is the player the record
+%% says was flagged, which is how the opponent is named without a policy knowing
+%% the seats. A resignation and every other end keep the decision they were sent
+%% with: what happened first is what the record says.
 -module(maybe_end_game).
 
 -export([handle_from_map/2, handle/2, dispatch/1]).
@@ -50,9 +60,48 @@ unended(false, State, Cmd) ->
 playing(false, _State, _Cmd) ->
     {error, not_started};
 playing(true, State, Cmd) ->
-    eligible(winner_stands(State, end_game_v1:get_outcome(Cmd),
-                           end_game_v1:get_winner_node_id(Cmd)),
-             State, Cmd).
+    Decision = decision(State, Cmd),
+    eligible(winner_stands(State, maps:get(outcome, Decision),
+                           maps:get(winner_node_id, Decision)),
+             State, Cmd, Decision).
+
+%% The decision the game is ended with. Only a flag is re-judged: the position
+%% outranks a loss on time, and nothing else does.
+decision(State, Cmd) ->
+    flagged(end_game_v1:get_reason(Cmd) =:= clock_flag, State, Cmd).
+
+flagged(false, _State, Cmd) ->
+    #{outcome => end_game_v1:get_outcome(Cmd),
+      winner_node_id => end_game_v1:get_winner_node_id(Cmd),
+      reason => end_game_v1:get_reason(Cmd)};
+flagged(true, State, _Cmd) ->
+    judged(game_verdict:of_state(State), State).
+
+judged({over, Decision}, _State) ->
+    maps:merge(#{winner_node_id => <<>>}, Decision);
+judged(active, State) ->
+    forfeit(State);
+judged({error, invalid_fen}, State) ->
+    %% The position is our own record, so this cannot come from a caller. The
+    %% game still ends: the clock ran out either way. Logged, so a fault in the
+    %% referee's own record is visible rather than silent.
+    logger:warning(#{what => flag_not_judged, game_id => game_state:game_id(State),
+                     reason => invalid_fen}),
+    forfeit(State).
+
+%% The flagged player lost on time, so the other seat won it.
+forfeit(State) ->
+    #{outcome => forfeit,
+      winner_node_id => opponent_of_flagged(State),
+      reason => clock_flag}.
+
+opponent_of_flagged(State) ->
+    Colour = game_state:colour_of(State, game_state:flagged_node_id(State)),
+    game_state:seat(State, other(Colour)).
+
+other(white) -> black;
+other(black) -> white;
+other(_) -> invalid.
 
 %% A draw and an abandonment name nobody; a win and a forfeit name a seat. Both
 %% are checked here rather than trusted: the policy decides who won, and the
@@ -68,17 +117,17 @@ winner_stands(State, Outcome, Winner) when Outcome =:= winner;
 winner_stands(_State, _Outcome, _Winner) ->
     false.
 
-eligible(true, State, Cmd) ->
-    events(State, Cmd);
-eligible(false, _State, _Cmd) ->
+eligible(true, State, Cmd, Decision) ->
+    events(State, Cmd, Decision);
+eligible(false, _State, _Cmd, _Decision) ->
     {error, winner_not_seated}.
 
-events(State, Cmd) ->
+events(State, Cmd, Decision) ->
     {ok, Event} = game_ended_v1:new(#{
         game_id => end_game_v1:get_game_id(Cmd),
-        outcome => end_game_v1:get_outcome(Cmd),
-        winner_node_id => end_game_v1:get_winner_node_id(Cmd),
-        reason => end_game_v1:get_reason(Cmd),
+        outcome => maps:get(outcome, Decision),
+        winner_node_id => maps:get(winner_node_id, Decision),
+        reason => maps:get(reason, Decision),
         fen_after => game_state:position(State),
         ply => game_state:ply(State),
         clocks => game_state:clocks(State),

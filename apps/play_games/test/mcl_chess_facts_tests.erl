@@ -17,6 +17,8 @@ topic_test_() ->
                    mcl_chess_facts:topic(mcl_chess_facts:realm_name(), move_played)),
      ?_assertEqual(<<"io.macula/mcl-chess/chess/game/move_refused_v1">>,
                    mcl_chess_facts:topic(mcl_chess_facts:realm_name(), move_refused)),
+     ?_assertEqual(<<"io.macula/mcl-chess/chess/game/clock_flagged_v1">>,
+                   mcl_chess_facts:topic(mcl_chess_facts:realm_name(), clock_flagged)),
      ?_assertEqual(<<"io.macula/mcl-chess/chess/game/game_ended_v1">>,
                    mcl_chess_facts:topic(mcl_chess_facts:realm_name(), game_ended)),
      %% The id is in the payload, never the topic: one subscription serves
@@ -31,6 +33,7 @@ keys_test_() ->
     Archived = mcl_chess_facts:game_archived(archived_event()),
     Played = mcl_chess_facts:move_played(played_event()),
     Refused = mcl_chess_facts:move_refused(refused_event()),
+    Flagged = mcl_chess_facts:clock_flagged(flagged_event()),
     Ended = mcl_chess_facts:game_ended(ended_event()),
     [?_assertEqual([at_ms, clocks, game_id, initiator_node_id, ply, position,
                     protocol, seats, status, time_control, to_move],
@@ -46,6 +49,10 @@ keys_test_() ->
      ?_assertEqual([at_ms, clocks, fen_after, game_id, move, player_node_id,
                     ply, reason, status],
                    lists:sort(maps:keys(Refused))),
+     %% A flag names whose clock ran out and the clocks as the flag recorded
+     %% them, so a consumer can tell a loss on time from any other forfeit.
+     ?_assertEqual([at_ms, clocks, game_id, player_node_id, status],
+                   lists:sort(maps:keys(Flagged))),
      ?_assertEqual([at_ms, clocks, fen_after, game_id, outcome, ply, reason,
                     status, winner_node_id],
                    lists:sort(maps:keys(Ended)))].
@@ -136,6 +143,13 @@ ended_event() ->
       ply => 4,
       clocks => #{white => 58000, black => 57000},
       status => 9,
+      at_ms => 1792435657965}.
+
+flagged_event() ->
+    #{game_id => <<"game-0123456789abcdef0123456789abcdef">>,
+      player_node_id => <<"a1b2">>,
+      clocks => #{white => 0, black => 60000},
+      status => 5,
       at_ms => 1792435657965}.
 
 archived_event() ->

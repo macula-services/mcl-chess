@@ -71,7 +71,8 @@ claimed(State, Cmd, Colour, Caller) ->
         player_node_id => Caller,
         color => game_state:colour_wire(Colour),
         seats => (game_state:seats(State))#{Colour => Caller},
-        status => game_state:status(State)}),
+        status => game_state:status(State),
+        at_ms => erlang:system_time(millisecond)}),
     {ok, [seat_claimed_v1:to_map(Event)]}.
 
 refused(Reason, State, Cmd, Colour, Caller) ->

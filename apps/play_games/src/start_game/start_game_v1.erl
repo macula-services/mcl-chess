@@ -28,8 +28,15 @@ new(#{game_id := GameId}) when is_binary(GameId), GameId =/= <<>> ->
 new(_) ->
     {error, missing_required_fields}.
 
--spec validate(t()) -> ok | {error, term()}.
+-spec validate(t() | map()) -> ok | {error, term()}.
 validate(#start_game{game_id = GameId}) ->
+    reckon_gater_stream_id:validate(GameId);
+%% TWO SHAPES, ONE RULE: the desk validates the command it built, and evoq's
+%% own router validates the payload it was handed when a process manager
+%% dispatches this command (`evoq_command:validate/1' calls
+%% `{command_type}:validate(Payload)', so it arrives as the map). Both carry the
+%% same game id, and the stream contract is the only thing either checks.
+validate(#{game_id := GameId}) ->
     reckon_gater_stream_id:validate(GameId).
 
 -spec to_map(t()) -> map().

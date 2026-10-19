@@ -58,7 +58,9 @@ seated(true, State, Cmd, Caller) ->
     events(State, Cmd, Caller).
 
 events(State, Cmd, Caller) ->
-    Colour = colour_of(State, Caller),
+    %% `is_seated/2' has already established a seat, so this always answers a
+    %% colour.
+    Colour = game_state:colour_of(State, Caller),
     {ok, Event} = game_ended_v1:new(#{
         game_id => resign_game_v1:get_game_id(Cmd),
         outcome => forfeit,
@@ -75,14 +77,6 @@ events(State, Cmd, Caller) ->
 
 other(white) -> black;
 other(black) -> white.
-
-%% The colour this caller holds. `is_seated/2' has already established that it
-%% holds one, so the two clauses are exhaustive on this path.
-colour_of(State, Caller) ->
-    held(Caller, game_state:seats(State)).
-
-held(Caller, #{white := Caller}) -> white;
-held(Caller, #{black := Caller}) -> black.
 
 %% @doc Resign and hand the caller the state it produced.
 -spec dispatch(resign_game_v1:t()) ->

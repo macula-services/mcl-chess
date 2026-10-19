@@ -14,6 +14,12 @@
 %%   does not allow (`illegal_move'/`invalid_move')
 %% - the caller can never be the wrong player by payload: the caller IS the
 %%   node macula verified, and the colour it holds is read from the seats map
+%% - A MOVE ON AN OVERDRAWN CLOCK IS REFUSED (`time_expired'), never clamped to
+%%   zero and played (mcl-chess#2, gate answer 4). The clock flags the player a
+%%   moment later, and refusing here is what stops a player who has already run
+%%   out from playing on: the move is refused by the same rule that decides the
+%%   flag, and it is recorded as evidence like any other foul attempt by a seat
+%%   holder
 %%
 %% A refusal is still a refusal to the caller: `submit_move_api' answers
 %% `{error, Reason}' whether the refusal was recorded or not. The event is the
@@ -73,7 +79,9 @@ live(false, State, Cmd, Caller, At) ->
 playing(false, _State, _Cmd, _Caller, _At) ->
     {error, not_started};
 playing(true, State, Cmd, Caller, At) ->
-    turn(colour_of(State, Caller), State, Cmd, Caller, At).
+    %% `is_seated/2' has already established a seat, so this always answers a
+    %% colour.
+    turn(game_state:colour_of(State, Caller), State, Cmd, Caller, At).
 
 turn(Colour, State, Cmd, Caller, At) ->
     theirs(its_turn(Colour, State), Colour, State, Cmd, Caller, At).
@@ -84,6 +92,14 @@ its_turn(Colour, State) ->
 theirs(false, _Colour, State, Cmd, Caller, At) ->
     refused(out_of_turn, State, Cmd, Caller, At);
 theirs(true, Colour, State, Cmd, Caller, At) ->
+    ticking(game_state:expired(State, Colour, At), Colour, State, Cmd, Caller, At).
+
+%% The clock instance flags the turn a moment later; this is the same question
+%% asked of the same state, so the two can never disagree about whether the time
+%% was there.
+ticking(true, _Colour, State, Cmd, Caller, At) ->
+    refused(time_expired, State, Cmd, Caller, At);
+ticking(false, Colour, State, Cmd, Caller, At) ->
     played(Colour, State, Cmd, Caller, At).
 
 played(Colour, State, Cmd, Caller, At) ->
@@ -152,14 +168,6 @@ capped(Reason, true, State, Cmd, Caller, At) ->
         status => game_state:status(State),
         at_ms => At}),
     {ok, [move_refused_v1:to_map(Event)]}.
-
-%% The colour this caller holds. `is_seated/2' has already established that it
-%% holds one, so the two clauses are exhaustive on this path.
-colour_of(State, Caller) ->
-    held(Caller, game_state:seats(State)).
-
-held(Caller, #{white := Caller}) -> white;
-held(Caller, #{black := Caller}) -> black.
 
 %% @doc Play the move and hand the caller the state it produced.
 -spec dispatch(submit_move_v1:t()) ->
