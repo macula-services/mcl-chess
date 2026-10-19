@@ -5,12 +5,11 @@
 %% watching. The `-behaviour' attribute below is what turns that into a compile
 %% error instead, and the generated test suite guards the attribute itself.
 %%
-%% IT ANNOUNCES NOTHING AND ASKS FOR NOTHING, on purpose. A service that does
-%% nothing yet has no capability to offer and needs no authority from the realm.
-%% Advertising a capability before it exists puts a lie on the mesh that another
-%% service can find and call. Both lists grow when the thing they name exists,
-%% and a generated test fails when they change, so growing them is a deliberate
-%% act rather than a comment someone forgot.
+%% IT ANNOUNCES ONLY WHAT ANSWERS, on purpose. Advertising a capability before
+%% it exists puts a lie on the mesh that another service can find and call, so
+%% each entry below is added in the work package that builds its desk, and a
+%% generated test fails when the list changes, which makes growing it a
+%% deliberate act rather than a comment someone forgot.
 -module(mcl_chess_service).
 
 -behaviour(mcl_om_service).
@@ -72,6 +71,14 @@ capabilities() ->
                    window_ms                 => 10000,
                    per_caller_max            => 10,
                    global_max                => 100}},
+     #{name => <<"claim_seat">>,
+       version => 1,
+       handler => {claim_seat_responder_v1, []},
+       auth => open,
+       limits => #{max_payload_external_size => 1024,
+                   window_ms                 => 10000,
+                   per_caller_max            => 20,
+                   global_max                => 200}},
      #{name => <<"withdraw_game">>,
        version => 1,
        handler => {withdraw_game_responder_v1, []},

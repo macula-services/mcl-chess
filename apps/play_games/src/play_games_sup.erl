@@ -19,7 +19,14 @@ start_link() -> supervisor:start_link({local, ?MODULE}, ?MODULE, []).
 
 init([]) ->
     {ok, {#{strategy => one_for_one, intensity => 5, period => 10},
-          [handler(emit_game_initiated_v1_to_mesh),
+          [%% Policies first among the subscribers: the seats-full policy turns a
+           %% second claim into a start, and it must be listening before any
+           %% emitter is (the emitters are the observable half, not the rule).
+           handler(on_seat_claimed_v1_maybe_start_game),
+           handler(emit_game_initiated_v1_to_mesh),
+           handler(emit_seat_claimed_v1_to_mesh),
+           handler(emit_seat_refused_v1_to_mesh),
+           handler(emit_game_started_v1_to_mesh),
            handler(emit_game_archived_v1_to_mesh)]}}.
 
 handler(Module) ->

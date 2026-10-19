@@ -232,26 +232,26 @@ def components():
     d.box("b-cmp", 262, 206, 210, 96, "claim_seat/", "[desk: seats]",
           ["seat_claimed_v1,", "seat_refused_v1"], code=True)
     d.box("b-cmp", 492, 206, 210, 96, "start_game/", "[desk: start]", ["game_started_v1"], code=True)
-    d.box("b-cmp", 712, 206, 210, 96, "submit_move/", "[desk: play]",
+    d.box("b-later", 712, 206, 210, 96, "submit_move/", "[desk: play, planned WP5]",
           ["move_played_v1,", "move_refused_v1"], code=True)
-    d.box("b-cmp", 32, 322, 210, 96, "resign_game/", "[desk: play]", ["game_ended_v1"], code=True)
+    d.box("b-later", 32, 322, 210, 96, "resign_game/", "[desk: play, planned WP5]", ["game_ended_v1"], code=True)
     d.box("b-cmp", 262, 322, 210, 96, "withdraw_game/", "[desk: death]",
           ["game_archived_v1,", "pre-start only"], code=True)
-    d.box("b-cmp", 492, 322, 210, 96, "flag_clock/, end_game/", "[internal, not on the wire]",
+    d.box("b-later", 492, 322, 210, 96, "flag_clock/, end_game/", "[internal, planned WP6]",
           ["clock_flagged_v1,", "game_ended_v1"], code=True)
-    d.box("b-cmp", 712, 322, 210, 96, "archive_game/", "[desk: death]",
+    d.box("b-later", 712, 322, 210, 96, "archive_game/", "[desk: death, planned WP6]",
           ["game_archived_v1,", "after retention"], code=True)
     d.box("b-cmp", 32, 480, 456, 132, "on_* policies", "[evoq_event_handler, replay_policy skip]",
           ["on_seat_claimed_v1_maybe_start_game,",
-           "on_move_played_v1_maybe_end_game,",
+           "planned: on_move_played_v1_maybe_end_game,",
            "on_clock_flagged_v1_maybe_end_game,",
            "on_game_ended_v1_maybe_archive_game."], code=True)
-    d.box("b-cmp", 512, 480, 456, 132, "Clock instance per game", "[evoq_process_manager, one per game]",
+    d.box("b-later", 512, 480, 456, 132, "Clock instance per game", "[evoq_process_manager, one per game, planned WP6]",
           ["White's clock starts at game_started_v1; the mover's",
            "stops and the opponent's starts on move_played_v1;",
            "both stop at game_ended_v1. The deadline arrives in",
            "handle_info/2, the hook evoq 1.27.0 added."], code=True)
-    d.box("b-cmp", 32, 648, 456, 110, "mcl_chess_rules", "[Rust NIF over cozy-chess, stateless]",
+    d.box("b-later", 32, 648, 456, 110, "mcl_chess_rules", "[Rust NIF, planned WP4]",
           ["validate_move(Fen, Uci), apply_move(Fen, Uci) -> Fen' and the",
            "Zobrist hash, status(Fen, Halfmove) -> active | checkmate |",
            "stalemate | insufficient_material. Legal-only generation."], code=True)

@@ -1,6 +1,9 @@
 %% @doc mcl-chess's public contract on the mesh: the facts a game publishes.
 %%
 %%   game_initiated_v1 on `<realm>/mcl-chess/chess/game/game_initiated_v1'
+%%   seat_claimed_v1   on `<realm>/mcl-chess/chess/game/seat_claimed_v1'
+%%   seat_refused_v1   on `<realm>/mcl-chess/chess/game/seat_refused_v1'
+%%   game_started_v1   on `<realm>/mcl-chess/chess/game/game_started_v1'
 %%   game_archived_v1  on `<realm>/mcl-chess/chess/game/game_archived_v1'
 %%
 %% One topic per fact kind; the game id is in the payload, never in the topic
@@ -12,7 +15,8 @@
 %% name the mesh SDK; a division-boundary test enforces it.
 -module(mcl_chess_facts).
 
--export([game_initiated/1, game_archived/1, to_wire/1, topic/2, realm_name/0]).
+-export([game_initiated/1, seat_claimed/1, seat_refused/1, game_started/1,
+         game_archived/1, to_wire/1, topic/2, realm_name/0]).
 
 -define(ORG, <<"mcl-chess">>).
 -define(APP, <<"chess">>).
@@ -20,6 +24,7 @@
 -define(VERSION, 1).
 
 -define(ARCHIVED_FIELDS, [game_id, reason, status, at_ms]).
+-define(SEAT_FIELDS, [game_id, player_node_id, color, seats, status, at_ms]).
 
 %% @doc The fact for a game_initiated_v1 event, whose keys may be atoms or
 %% binaries (an event read back from the store is binary-keyed).
@@ -45,6 +50,34 @@ game_initiated(Event) ->
 game_archived(Event) ->
     maps:from_list([{Field, field(Field, Event)} || Field <- ?ARCHIVED_FIELDS]).
 
+%% @doc The fact for a seat_claimed_v1 event: which node took which colour, and
+%% the seats map after the claim.
+-spec seat_claimed(map()) -> map().
+seat_claimed(Event) ->
+    maps:from_list([{Field, field(Field, Event)} || Field <- ?SEAT_FIELDS]).
+
+%% @doc The fact for a seat_refused_v1 event. The reason travels as text, the
+%% same spelling the caller was answered with, so a consumer that saw the
+%% refusal and one that reads the fact agree.
+-spec seat_refused(map()) -> map().
+seat_refused(Event) ->
+    (maps:from_list([{Field, field(Field, Event)} || Field <- ?SEAT_FIELDS]))
+        #{reason => reason_text(field(reason, Event))}.
+
+%% The event's reason is an atom, the answer is text: one conversion, here,
+%% rather than in every consumer.
+reason_text(Reason) when is_atom(Reason) -> atom_to_binary(Reason, utf8);
+reason_text(Reason) -> Reason.
+
+%% @doc The fact for a game_started_v1 event: both holders by colour, the
+%% position the game starts from, and the clocks it starts with.
+-spec game_started(map()) -> map().
+game_started(Event) ->
+    maps:from_list([{Field, field(Field, Event)}
+                    || Field <- [game_id, white_node_id, black_node_id,
+                                 position, to_move, ply, clocks, status,
+                                 at_ms]]).
+
 field(Field, Event) ->
     maps:get(Field, Event, maps:get(atom_to_binary(Field, utf8), Event, undefined)).
 
@@ -57,9 +90,19 @@ to_wire(L) when is_list(L) -> [to_wire(E) || E <- L];
 to_wire(M) when is_map(M) -> maps:map(fun(_K, V) -> to_wire(V) end, M);
 to_wire(Other) -> Other.
 
--spec topic(binary(), game_initiated | game_archived) -> binary().
+-spec topic(binary(), game_initiated | seat_claimed | seat_refused |
+                         game_started | game_archived) -> binary().
 topic(RealmName, game_initiated) ->
     macula_topic:app_fact(RealmName, ?ORG, ?APP, ?DOMAIN, <<"game_initiated">>,
+                          ?VERSION);
+topic(RealmName, seat_claimed) ->
+    macula_topic:app_fact(RealmName, ?ORG, ?APP, ?DOMAIN, <<"seat_claimed">>,
+                          ?VERSION);
+topic(RealmName, seat_refused) ->
+    macula_topic:app_fact(RealmName, ?ORG, ?APP, ?DOMAIN, <<"seat_refused">>,
+                          ?VERSION);
+topic(RealmName, game_started) ->
+    macula_topic:app_fact(RealmName, ?ORG, ?APP, ?DOMAIN, <<"game_started">>,
                           ?VERSION);
 topic(RealmName, game_archived) ->
     macula_topic:app_fact(RealmName, ?ORG, ?APP, ?DOMAIN, <<"game_archived">>,

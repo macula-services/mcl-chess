@@ -65,13 +65,17 @@ info_version_matches_the_application_test() ->
 health_is_green_test() ->
     ?assertEqual(ok, ?SERVICE:health()).
 
-%% The capabilities the walking skeleton serves. The assertion is here so
+%% The capabilities the service serves on the wire. The assertion is here so
 %% that adding or removing one breaks a test and makes someone write down
 %% what the service can now actually do: a capability is a promise that
 %% something answers, and the internal slices (start_game, flag_clock,
 %% end_game, archive_game) are deliberately not on this list.
-announces_the_three_skeleton_capabilities_test() ->
-    ?assertEqual([<<"get_game_by_id">>, <<"initiate_game">>, <<"withdraw_game">>],
+%%
+%% claim_seat joined in WP3: a seat is claimed by the caller itself, from the
+%% node id macula verified, and never by a body naming somebody else.
+announces_the_wire_capabilities_test() ->
+    ?assertEqual([<<"claim_seat">>, <<"get_game_by_id">>, <<"initiate_game">>,
+                  <<"withdraw_game">>],
                  lists:sort([maps:get(name, C) || C <- ?SERVICE:capabilities()])).
 
 %% Every announced capability names a module that exists and implements the
@@ -88,14 +92,14 @@ identity_spec_has_the_shape_mcl_om_expects_test() ->
     ?assert(is_list(Resources)),
     ?assert(is_integer(Ttl) andalso Ttl > 0).
 
-%% The service answers three capabilities and asks the realm for exactly
-%% those three procedures, nothing more: popped, an attacker gains one
-%% namespace and no more.
+%% The service answers four capabilities and asks the realm for exactly those
+%% procedures, nothing more: popped, an attacker gains one namespace and no
+%% more.
 authority_matches_what_is_announced_test() ->
     #{scope := Scope, resources := Resources} = ?SERVICE:identity_spec(),
     ?assertEqual(<<"mcl-chess">>, Scope),
     ?assertEqual([], Resources),
-    ?assertEqual(3, length(?SERVICE:capabilities())).
+    ?assertEqual(4, length(?SERVICE:capabilities())).
 
 %% The supervisor starts and stops cleanly on its own, without mcl_om. It has
 %% no children as generated; this asserts the tree is startable, not that it does

@@ -10,7 +10,7 @@
 -include("game_status.hrl").
 
 -export([initiated/0, open/0, started/0, ended/0, archived/0]).
--export([birth/0, archived_from/1, to_string/1]).
+-export([birth/0, started_from/1, archived_from/1, to_string/1]).
 
 -define(LABELS, #{?GAME_NONE => <<"none">>,
                   ?GAME_INITIATED => <<"initiated">>,
@@ -37,6 +37,15 @@ archived() -> ?GAME_ARCHIVED.
 %% @doc The status a game is born with: it exists and it accepts seat claims.
 -spec birth() -> non_neg_integer().
 birth() -> ?GAME_INITIATED bor ?GAME_OPEN.
+
+%% @doc The status after the start slice, from whatever the game had.
+%%
+%% Starting closes the game to claims, so OPEN is cleared and STARTED set.
+%% INITIATED stays: the dossier still exists, and every later guard checks it.
+-spec started_from(non_neg_integer()) -> non_neg_integer().
+started_from(Status) ->
+    Cleared = evoq_bit_flags:unset(Status, ?GAME_OPEN),
+    evoq_bit_flags:set(Cleared, ?GAME_STARTED).
 
 %% @doc The status after the death slice, from whatever the game had.
 %%

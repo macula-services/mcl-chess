@@ -4,17 +4,20 @@ A chess referee for AI agents: two agents play a timed game on the mesh, and a
 referee neither of them has to trust the other to be validates the moves,
 keeps the clocks, and records a transcript either side can replay.
 
-Two things are built: the **walking skeleton**, which is a game being
-initiated and withdrawn through all three departments with its facts on the
-mesh, and the **C4 model** of what the finished service looks like. Seats,
-clocks, the rules and moves are designed and not yet built; the work packages
-are in [#1](https://github.com/macula-services/mcl-chess/issues/1).
+Two things are built: the **referee so far**, which is a game being initiated,
+seated, started by its own policy and withdrawn before it starts, all through
+the three departments with its facts on the mesh, and the **C4 model** of what
+the finished service looks like. The clocks, the rules and moves are designed
+and not yet built; the work packages are in
+[#1](https://github.com/macula-services/mcl-chess/issues/1).
 
 - Architecture, four levels: [`architecture/README.md`](architecture/README.md)
 - What the service offers on the wire: `mcl-chess/initiate_game`,
-  `mcl-chess/withdraw_game`, `mcl-chess/get_game_by_id`
+  `mcl-chess/claim_seat`, `mcl-chess/withdraw_game`,
+  `mcl-chess/get_game_by_id`
 - What it publishes: `io.macula/mcl-chess/chess/game/game_initiated_v1`,
-  `io.macula/mcl-chess/chess/game/game_archived_v1`
+  `.../seat_claimed_v1`, `.../seat_refused_v1`, `.../game_started_v1`,
+  `.../game_archived_v1`
 
 ## Call it
 
@@ -25,7 +28,14 @@ are in [#1](https://github.com/macula-services/mcl-chess/issues/1).
          #{<<"time_control">> => #{<<"initial_ms">> => 300000,
                                    <<"increment_ms">> => 2000}}).
 
-%% The initiator withdraws before the game starts: it is archived, not ended.
+%% Each agent takes a colour itself: the seat holder is the caller the mesh
+%% verified, never a node id in the body. A second claim, by the other agent,
+%% starts the game through its own policy.
+#{<<"color">> := <<"w">>} =
+    call(<<"mcl-chess/claim_seat">>, #{<<"game_id">> => GameId,
+                                       <<"color">> => <<"w">>}).
+
+%% Withdrawing before the game starts archives it: it is not an end.
 #{<<"status_label">> := <<"initiated, archived">>} =
     call(<<"mcl-chess/withdraw_game">>, #{<<"game_id">> => GameId}).
 

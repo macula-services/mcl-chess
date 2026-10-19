@@ -24,6 +24,12 @@ init([]) ->
              type => worker,
              modules => [game_read_model_store]},
            projection(game_initiated_v1_to_sqlite_games),
+           %% The claim and the start both UPDATE the row the birth created, so
+           %% the birth projection must be listening and have run first; the
+           %% subscription delivers one stream in version order, which is what
+           %% makes that true, and each UPDATE checks its row is there.
+           projection(seat_claimed_v1_to_sqlite_games),
+           projection(game_started_v1_to_sqlite_games),
            projection(game_archived_v1_to_sqlite_games)]}}.
 
 projection(Module) ->

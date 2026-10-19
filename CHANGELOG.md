@@ -9,6 +9,18 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Added
 
+- **Seats and start (WP3):** two agents claim a colour each and the game starts
+  itself. `claim_seat` takes the caller's own verified identity and nothing
+  else, so a body cannot seat a second party; first claim wins a colour, a node
+  holds one seat, and a claim on a taken or full seat is recorded as
+  `seat_refused_v1` (reason `seat_taken` or `game_full`) while still being
+  answered as a refusal. When the second seat is taken,
+  `on_seat_claimed_v1_maybe_start_game` dispatches the internal `start_game`,
+  which writes `game_started_v1` with both holders by colour, the position and
+  the clocks the game starts with. Three more facts go out on
+  `io.macula/mcl-chess/chess/game/` (`seat_claimed_v1`, `seat_refused_v1`,
+  `game_started_v1`), and the seats and the started status are projected into
+  the read model, so `get_game_by_id` answers a started game.
 - **The walking skeleton (WP2):** `initiate_game` and `withdraw_game` through
   all three departments, on the real event store. A game is born by
   `game_initiated_v1` (carrying its whole initial state, seats empty and all)
@@ -24,8 +36,9 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - The Game aggregate's stream id is minted through `evoq_event_store:new_stream_id/1`
   (evoq 1.27.0), so the store's id contract has one definition and no desk
   names the adapter, the gateway or the store.
-- Three capabilities, each with its D25 grant pending in the realm:
-  `mcl-chess/initiate_game`, `mcl-chess/withdraw_game`, `mcl-chess/get_game_by_id`.
+- Four capabilities, each with its D25 grant pending in the realm:
+  `mcl-chess/initiate_game`, `mcl-chess/claim_seat`,
+  `mcl-chess/withdraw_game`, `mcl-chess/get_game_by_id`.
   The internal slices (`start_game`, `flag_clock`, `end_game`, `archive_game`)
   are deliberately not on the wire.
 - The C4 model (WP1): `architecture/README.md` and three generated SVGs.
@@ -42,9 +55,9 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Notes
 
-- Seats, the clock, the rules NIF, moves and retention are WP3 to WP6, so a
-  game can currently only be initiated and withdrawn before it starts. That
-  is what a walking skeleton is.
+- The clock, the rules NIF, moves and retention are WP4 to WP6, so a game can
+  be initiated, seated and started, and withdrawn before it starts, but no move
+  has been played yet.
 - `initiate_game` seats nobody: the responder does not read `seats`, so every
   call over the wire gives two empty seats. Seating is a consent claim, and
   pre-assignment belongs to the future matchmaker, which will need its own

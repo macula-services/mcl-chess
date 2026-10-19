@@ -32,6 +32,12 @@ execute(State, #{command_type := initiate_game_v1} = Payload) ->
 execute(State, #{command_type := withdraw_game_v1} = Payload) ->
     guard_then(fun(_S, _P) -> ok end, State, Payload,
                fun maybe_withdraw_game:handle_from_map/2);
+execute(State, #{command_type := claim_seat_v1} = Payload) ->
+    guard_then(fun(_S, _P) -> ok end, State, Payload,
+               fun maybe_claim_seat:handle_from_map/2);
+execute(State, #{command_type := start_game_v1} = Payload) ->
+    guard_then(fun(_S, _P) -> ok end, State, Payload,
+               fun maybe_start_game:handle_from_map/2);
 execute(_State, _Unknown) ->
     {error, unknown_command}.
 
