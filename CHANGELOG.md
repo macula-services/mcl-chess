@@ -9,6 +9,38 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Added
 
+- **A game played to its end (WP5):** `submit_move` and `resign_game` on the
+  wire, the internal `end_game` that a policy dispatches, and
+  `on_move_played_v1_maybe_end_game`, which reads a played move, asks the rules
+  engine for a verdict and ends the game on `checkmate`, `stalemate`,
+  `insufficient_material`, the 75 move rule or fivefold repetition. A move is
+  played by the seat the caller holds, from the node id macula verified, and
+  only when it is that seat's turn; a foul attempt by a seat holder (out of
+  turn, illegal, or after the game ended) is written as `move_refused_v1` and
+  published, on the same ten-per-player counter the seat refusals use, while a
+  caller with no seat is refused and writes nothing. `game_ended_v1` carries
+  the outcome (`winner`, `draw`, `forfeit`), the reason and the final position,
+  and one emitter serves every way a game ends.
+- **The automatic draws (mcl-chess#4, operator decision 2026-10-19):** a v1
+  game ends as a draw at the 75 move rule (150 halfmoves without a pawn move or
+  a capture) and on fivefold repetition. `status/2` gained the
+  `seventy_five_moves` verdict; fivefold is counted by the aggregate over the
+  hashes its events recorded, because it is not a function of one position. The
+  50 move and threefold draws stay v2 claims.
+- **The referee's own halfmove clock.** cozy-chess keeps the FEN's counter in a
+  byte and clamps it at 100, so the 150 the 75 move rule fires at is
+  unreachable through the FEN. `apply_move/2` now reports whether a move reset
+  the counter, `game_state` keeps the uncapped count, and `move_played_v1`
+  carries it. `position_hash/1` was added so the position a game starts from is
+  in the repetition history too.
+- **The move and end projections:** the board, `to_move`, the clocks and the
+  halfmove count are projected per move, the move list lives in its own
+  `moves` table keyed on `(game_id, ply)` so a replay replaces rather than
+  duplicates, and the end writes the outcome, the reason, the winner and
+  `ended_at`. `get_game_by_id` answers with the move list, the outcome and the
+  end reason; the read-model store migrates an existing file with idempotent
+  `ALTER TABLE`s instead of assuming a fresh one.
+
 - **The rules engine (WP4):** `native/mcl_chess_rules/`, a stateless Rustler
   NIF over cozy-chess 0.3.4 (MIT) exposing `validate_move/2`, `apply_move/2`
   and `status/2` through the BEAM module `mcl_chess_rules` in `play_games`.
@@ -73,13 +105,13 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Notes
 
-- The clock, the move desks and retention are WP5 and WP6, so a game can be
-  initiated, seated and started, and withdrawn before it starts, but no move
-  has been played yet. The rules engine that will judge a move is built and
-  tested; nothing calls it yet.
-- A draw by the move counter is a claim, and claims are v2 (mcl-chess#1), so a
-  v1 game whose position stays playable never ends on the halfmove clock
-  (mcl-chess#4).
+- The clock and retention are WP6, so the clocks in a move event are charged by
+  the move desk from the aggregate's own timestamps, but nothing yet fires when
+  a clock runs out: a game ends by mate, a dead position, the 75 move rule,
+  fivefold repetition or a resignation.
+- A draw by the 50 move rule or by threefold repetition is a claim, and claims
+  are v2 (mcl-chess#1). The automatic draws (75 moves, fivefold) are v1, per
+  the operator's decision on mcl-chess#4.
 - `initiate_game` seats nobody: the responder does not read `seats`, so every
   call over the wire gives two empty seats. Seating is a consent claim, and
   pre-assignment belongs to the future matchmaker, which will need its own

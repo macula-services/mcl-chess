@@ -14,7 +14,7 @@ Legend, the same in all three diagrams: amber is the element in scope, lavender-
 
 | Element | Kind | Role | Status |
 | --- | --- | --- | --- |
-| mcl-chess | In scope | The referee: validates, clocks and sequences one game, records a disputable transcript, publishes facts. Never plays, never picks a move, never contacts an agent | built (WP2, WP3): initiate, claim a seat, start, withdraw; the clock and the rules are WP5 and WP6 |
+| mcl-chess | In scope | The referee: validates, clocks and sequences one game, records a disputable transcript, publishes facts. Never plays, never picks a move, never contacts an agent | built (WP2 to WP5): initiate, claim a seat, start, move, resign, end, withdraw; the clock that flags and retention are WP6 |
 | Player A's agent, Player B's agent | External | The two seats. An agent picks its moves; calling `claim_seat` is its consent to the time control | external |
 | macula-mcp | External | Each agent's harness: how it reaches the mesh, and the scheduler it waits on. The thinking half of the game lives here, not in the service | external, built |
 | Macula mesh | Macula infrastructure | The pinned stations are the entry points (QUIC); the union of stations routes an org procedure; the facts travel its topics | built |
@@ -33,11 +33,11 @@ Legend, the same in all three diagrams: amber is the element in scope, lavender-
 | Container | Technology | Responsibility | Status |
 | --- | --- | --- | --- |
 | mcl_chess (boot app) | mcl_om mesh service, OCI image, OTP release | Opens the event store before `mcl_om:boot/1`, supervises the three departments, serves `/health`, advertises the capabilities and names any missing D25 grant | built (WP2) |
-| play_games | CMD app, evoq | One desk per lifecycle slice, from game initiation to archive. The only writer of events | built for initiate, claim, start and withdraw (WP2, WP3); move, resign, flag and archive are WP5 to WP6. It also hosts the rules engine's BEAM module (WP4) |
-| project_games | PRJ app, evoq | One projection per event, writing the read model and the status label computed at projection time | built for both skeleton events (WP2) |
+| play_games | CMD app, evoq | One desk per lifecycle slice, from game initiation to archive. The only writer of events | built for initiate, claim, start, move, resign, end and withdraw (WP2 to WP5); flag and archive are WP6. It also hosts the rules engine's BEAM module (WP4) |
+| project_games | PRJ app, evoq | One projection per event, writing the read model and the status label computed at projection time | built for every state-changing event (WP2, WP3, WP5). A refusal is evidence, not state, and is not projected |
 | query_games | QRY app, esqlite | `get_game_by_id`, by status, page, by player. Answers from the read model, never from events | `get_game_by_id` built (WP2); the other three are later |
 | Event store | reckon_db, volume `/data` | The source of truth: one stream per game, replayed to rebuild the aggregate on demand | built (WP2) |
-| Read model | SQLite through esqlite | Board, move list, clocks, status and label: what queries serve and what a board viewer rebuilds from | built: birth, seats and start projected (WP2, WP3) |
+| Read model | SQLite through esqlite | Board, move list, clocks, status and label: what queries serve and what a board viewer rebuilds from | built: birth, seats, start, every move and the end projected (WP2, WP3, WP5). The move list is its own table (see the migration note below) |
 | Identity and realm admission | Node identity key, D25 grants | The identity key names the service to the realm; a procedure without its grant is refused at the boundary | wired (WP2); the three grants are an operator step (WP8) |
 | ghcr.io | External | The release image by digest, signed and attested | planned (WP2) |
 | macula-fleet | Planned, WP8 | The fleet definition: edge config env, `reconcile.manifest` entry, digest pin, canary first | out of this range |
@@ -50,19 +50,20 @@ Legend, the same in all three diagrams: amber is the element in scope, lavender-
 
 | Component | Kind | Responsibility | Status |
 | --- | --- | --- | --- |
-| `game_aggregate`, `game_state`, `game_status.hrl` | `evoq_aggregate` and its state module | Replays its own stream to the state: seats, position, `to_move`, ply, clocks, status flags, outcome. Every guard lives in a `maybe_*` handler, never in a caller | built (WP2, extended in WP3 for seats and start) |
+| `game_aggregate`, `game_state`, `game_status.hrl` | `evoq_aggregate` and its state module | Replays its own stream to the state: seats, position, `to_move`, ply, clocks, halfmove count, repetition history, status flags, outcome. Every guard lives in a `maybe_*` handler, never in a caller | built (WP2, extended in WP3 for seats and start and in WP5 for moves and the end) |
 | `initiate_game/` | Desk, CMD | `initiate_game_v1` to `game_initiated_v1`: mints the stream id through `evoq_event_store:new_stream_id/1` and records the full initial state | built (WP2) |
 | `claim_seat/` | Desk, CMD | `seat_claimed_v1`, `seat_refused_v1`: a claim is for a color, the first claim wins it, a full game refuses the third claimer, and one node holds one seat | built (WP3) |
 | `start_game/` | Desk, CMD, internal | `game_started_v1` once both seats are filled. Dispatched by a policy, never served on the wire | built (WP3) |
-| `submit_move/` | Desk, CMD | `move_played_v1` for a legal move by the seat to move, `move_refused_v1` (the evidence class) for a seat holder's foul attempt | planned (WP5) |
-| `resign_game/` | Desk, CMD | `game_ended_v1` with outcome `forfeit` | planned (WP5) |
+| `submit_move/` | Desk, CMD | `move_played_v1` for a legal move by the seat to move and `move_refused_v1` (the evidence class) for a seat holder's foul attempt. Charges the mover's clock, advances the halfmove count and counts the repetition | built (WP5) |
+| `resign_game/` | Desk, CMD | `game_ended_v1` with outcome `forfeit` and reason `resignation`, the opponent named as the winner | built (WP5) |
 | `withdraw_game/` | Desk, CMD | `game_archived_v1` with reason `withdrawn`, pre-start only: a game that never began is not an end | built (WP2) |
-| `flag_clock/`, `end_game/` | Desks, CMD, internal | `clock_flagged_v1` and `game_ended_v1`, dispatched by the clock instance and by policies | planned (WP6) |
+| `end_game/` | Desk, CMD, internal | `game_ended_v1`: the one way a game ends, whether a policy, a resignation or (WP6) a flagged clock triggered it. Refuses a winner the game never admitted | built (WP5) |
+| `flag_clock/` | Desk, CMD, internal | `clock_flagged_v1`, dispatched by the clock instance when a deadline fires | planned (WP6) |
 | `archive_game/` | Desk, CMD, internal | `game_archived_v1` after the retention window: the death slice | the desk and its retention policy arrive with WP6, which is where the design of record puts the window; the event module is already built and shared with `withdraw_game/` |
-| `on_* policies` | `evoq_event_handler`, `replay_policy -> skip` | Subscribe by event type and dispatch the next command: seats full starts the game, a terminal position or a flagged clock ends it, an ended game is archived after retention | `on_seat_claimed_v1_maybe_start_game` built (WP3); the other three are WP5 and WP6 |
+| `on_* policies` | `evoq_event_handler`, `replay_policy -> skip` | Subscribe by event type and dispatch the next command: seats full starts the game, a terminal position or a flagged clock ends it, an ended game is archived after retention | `on_seat_claimed_v1_maybe_start_game` built (WP3) and `on_move_played_v1_maybe_end_game` built (WP5); the clock and the retention policy are WP6 |
 | Clock instance per game | `evoq_process_manager`, one per game | Reads events only: white's clock starts, the mover's stops and the opponent's starts, both stop at the end. Its deadline arrives in `handle_info/2`, the hook evoq 1.27.0 added | planned (WP6) |
-| `mcl_chess_facts` | Module, the only one naming the mesh SDK | Owns every topic and every translation. Desks emit through it; nothing else names a topic | built: five facts (WP2, WP3) |
-| `mcl_chess_rules` | Rust NIF over cozy-chess, stateless | `validate_move/2`, `apply_move/2` returning the FEN and its Zobrist hash, `status/2`. Legal-only generation | built (WP4), not yet called by a desk: `submit_move` wires it in WP5 |
+| `mcl_chess_facts` | Module, the only one naming the mesh SDK | Owns every topic and every translation. Desks emit through it; nothing else names a topic | built: eight facts (WP2, WP3, WP5) |
+| `mcl_chess_rules` | Rust NIF over cozy-chess, stateless | `validate_move/2`, `apply_move/2` returning the FEN, its Zobrist hash and whether the move reset the halfmove counter, `position_hash/1`, `status/2`. Legal-only generation | built (WP4) and called by `submit_move` and the end policy (WP5) |
 | evoq 1.27.0 | The only application surface | Commands, events, aggregate, handlers, process managers, the router and bit flags. The adapter is named in `sys.config` only: no desk touches the store | built (released 2026-10-19) |
 
 **evoq is the only application surface.** The `reckon_evoq_adapter` is named in `config/sys.config.src` and nowhere else. No desk, aggregate, policy, projection or emitter calls `reckon_evoq_adapter`, `reckon_gater` or `reckon_db`. Two gaps used to make that impossible, and both are closed as of evoq 1.27.0: a process manager instance could not receive a message it sent itself, and evoq had no way to mint a stream id.
@@ -73,7 +74,7 @@ Level 4 is a table rather than a picture: the aggregate record, its state module
 
 | Element | Where | Holds or does |
 | --- | --- | --- |
-| `#game{}` | `apps/play_games/include/game_state.hrl` | `game_id`, `protocol`, `time_control`, `seats`, `position`, `to_move`, `ply`, `clocks`, `status`, `outcome` |
+| `#game{}` | `apps/play_games/include/game_state.hrl` | `game_id`, `protocol`, `time_control`, `seats`, `position`, `to_move`, `ply`, `clocks`, `halfmove_clock`, `hashes`, `status`, `outcome`, `winner_node_id`, `end_reason`, `refusals` |
 | `game_state` | `apps/play_games/src/game_state.erl` | `apply/2`: one clause per event, folding the event into `#game{}` |
 | `game_status.hrl` | `apps/play_games/include/game_status.hrl` | The `evoq_bit_flags` integers and their label map |
 | Event modules | one per event, `_v1` suffixed | The full state the event produced, so a projection or a replay never needs a second stream |
@@ -93,13 +94,43 @@ Level 4 is a table rather than a picture: the aggregate record, its state module
 
 `INITIATED` is never cleared: it is the "this dossier exists" flag every slice guard checks, and the archived aggregate keeps it.
 
+A game that has ended is no longer started, which is why `game_ended_v1` clears `STARTED`. Every handler therefore asks "has it ended?" before "has it started?": an ended game answering `not_started` would read to the agent that ended it as a fault in the referee.
+
+## What ends a game (WP5, plus the operator's decision on mcl-chess#4)
+
+A move is judged by the rules engine, and `on_move_played_v1_maybe_end_game` acts on the verdict. The draw rule was settled by the operator on 2026-10-19: **FIDE's automatic draws only.**
+
+| End | Outcome | Reason | Judged by |
+| --- | --- | --- | --- |
+| No legal moves and in check | `winner` | `checkmate` | the rules engine |
+| No legal moves and not in check | `draw` | `stalemate` | the rules engine |
+| Neither side can ever mate | `draw` | `insufficient_material` | the rules engine |
+| 150 halfmoves without a pawn move or a capture | `draw` | `seventy_five_moves` | the rules engine, given the referee's own count |
+| The same position five times | `draw` | `fivefold_repetition` | the aggregate, counting the hashes its events recorded |
+| A player resigns | `forfeit` | `resignation` | the resign desk |
+| (WP6) A clock runs out | `forfeit` | `clock_flag` | the clock instance |
+
+The order is FIDE's: checkmate wins over the counter, a position that is dead on its own terms reports its own reason, and the counter is asked last. The 50 move and threefold draws are **claims**, and claims are v2.
+
+**The referee keeps its own halfmove count, and that is why `apply_move/2` returns a flag.** cozy-chess keeps the FEN's counter in a `u8` and clamps it at 100, so a FEN alone can never report the 150 halfmoves the 75 move rule fires at. `apply_move/2` therefore says whether the move reset the counter (a pawn moved, or something was captured), `game_state` keeps the count uncapped, and `move_played_v1` carries it: a replay folds the number the desk computed rather than re-deriving it.
+
+**Fivefold is the aggregate's because it is not a function of one position.** Every event that advances the position records its FIDE Zobrist hash; the state keeps the hashes since the last irreversible move (trimmed there, because no position before one can recur); the move event carries how many times the position it produced has occurred. The end policy reads that count off the event, so it decides from one event and never from a read model.
+
+**The mover's clock is charged by the move desk.** The turn began at the state's own `at_ms` (the last event that changed the game), so the time is derived from the record and not from a wall clock, and the increment is paid on top when a move completed. A player whose time ran out is recorded at zero and pays no increment. WP6 adds the timer that fires when a clock reaches zero; it reads this event rather than re-deriving the numbers.
+
+## The read model's shape, and how it changes
+
+The move list is a table of its own, `moves(game_id, ply, uci)` with a primary key on the first two, not a text column grown by concatenation: a projection must survive a replay, and appending to a string is not idempotent. `INSERT OR REPLACE` keyed on `(game_id, ply)` is.
+
+A read model file outlives a release, and `CREATE TABLE IF NOT EXISTS` does nothing to a table that already exists, so a column added to the DDL is also declared in `game_read_model_store:migrations/0`, which `ALTER TABLE`s it only when `PRAGMA table_info` does not already list it. That is the only way this schema changes.
+
 ## The rules engine, built in WP4
 
 `native/mcl_chess_rules/` is a Rustler cdylib over [cozy-chess](https://crates.io/crates/cozy-chess) 0.3.4 (MIT; the licensing decision is in the design of record). Three functions, no state, no dirty scheduler: a call is one FEN parse and one move-generation pass.
 
 | Layer | Where | What |
 | --- | --- | --- |
-| Pure rules | `native/mcl_chess_rules/src/rules.rs` | `validate_move/2`, `apply_move/2`, `status/2` over FEN and UCI strings. No BEAM types, so the perft suite runs as an ordinary `cargo test` |
+| Pure rules | `native/mcl_chess_rules/src/rules.rs` | `validate_move/2`, `apply_move/2`, `position_hash/1` and `status/2` over FEN and UCI strings. No BEAM types, so the perft suite runs as an ordinary `cargo test` |
 | NIF translation | `native/mcl_chess_rules/src/nif.rs` | The three `#[rustler::nif]` functions, compiled out under `cfg(test)`: the `enif_*` calls they make do not exist in a test binary |
 | BEAM module | `apps/play_games/src/mcl_chess_rules.erl` | Loads the `.so` from `play_games`' own `priv/lib` and is the module a desk calls |
 | Build | `scripts/build-nif.sh`, run by the umbrella's `compile` pre_hook | `cargo build --release --locked`, then the `.so` into `apps/play_games/priv/lib`, which relx copies into the release |
@@ -110,9 +141,10 @@ Level 4 is a table rather than a picture: the aggregate record, its state module
 
 - **Castling is spelled twice.** The wire says `e1g1`; cozy-chess, like every Chess960-aware engine, says `e1h1` (the king takes its own rook). Both spellings are accepted and both arrive at the same position, and a king move to `g1` that is not a castle is simply illegal, so there is no ambiguity to preserve.
 - **The recorded hash is the FIDE one.** `apply_move/2` returns a Zobrist hash in which a dead en passant square does not count: two positions a repetition check must call identical hash identically. `hash()` and `hash_without_ep()` alone are each wrong here, so the hash is `hash()` only when the en passant capture is actually legal.
-- **The verdicts are the four v1 end conditions**: `active`, `checkmate`, `stalemate`, `insufficient_material`. Insufficient material is bare kings, a lone minor piece, or a bishop each on the same colour of square.
+- **The verdicts are the v1 end conditions**: `active`, `checkmate`, `stalemate`, `insufficient_material`, `seventy_five_moves`. Insufficient material is bare kings, a lone minor piece, or a bishop each on the same colour of square; `seventy_five_moves` is the 150th halfmove, asked last, after mate, stalemate and dead material have had their say.
+- **`apply_move/2` reports the halfmove reset** (a pawn move or a capture), because the counter it would otherwise read back is clamped at 100 and the rule fires at 150. `position_hash/1` hashes a position without playing a move into it, which is how a game's start position enters the repetition history.
 
-**What it does not decide.** A draw by the move counter is a claim, and claims are v2, so `status/2` takes the referee's halfmove clock and no v1 verdict depends on it. [#4](https://github.com/macula-services/mcl-chess/issues/4) records the consequence: a v1 game whose position stays playable never ends on the counter.
+**What it does not decide.** The fivefold draw, which is not a function of one position (the aggregate counts it), and the 50 move and threefold draws, which are claims and are v2. [#4](https://github.com/macula-services/mcl-chess/issues/4) settled which automatic draws v1 takes: the closing comment there is the record.
 
 ## Decisions
 
@@ -130,6 +162,9 @@ Level 4 is a table rather than a picture: the aggregate record, its state module
 - [ ] A crash between the second claim and the policy's dispatch leaves a full, unstarted game: the policy is `skip` on replay, so nothing re-fires it, and only the initiator's withdraw clears it. Rare, and WP6's clock or retention policy is the natural place to sweep it.
 - [x] **The rules NIF is a cdylib whose pure half is a separate module** (WP4). Rustler's `enif_*` calls are resolved by the BEAM at load time and do not exist in a test binary, so a crate that mixes the NIF registration into the code under test cannot run `cargo test` at all. `rules.rs` holds the chess and `nif.rs` (compiled out under `cfg(test)`) holds the translation, which is what lets perft run as a normal test rather than as a test that never runs. The alternative, a second crate in a workspace, buys nothing this crate needs.
 - [x] **The NIF builds in the ordinary builder stage, and the image copies what the hook needs** (WP4). The pinned `macula-ci-otp` image already carries Rust (1.98.1), so there is no toolchain stage; but compiling runs the pre_hook, so `COPY scripts` and `COPY native` sit before `rebar3 as prod release`. Without them the image build fails in the release step, three layers after the change that caused it.
+- [x] **A foul move is recorded, and a stranger's is not** (WP5). A seat holder moving out of turn, illegally, or after the game ended is evidence: `move_refused_v1` is written and published, under the same ten-per-player cap the seat refusals use. A caller holding no seat, a game that never started and an archived game record nothing, because none of them says anything about anybody's conduct and a stranger must not grow a stream. The caller always gets `{error, Reason}` either way: the event is the evidence, the answer is the answer.
+- [x] **The end policy decides from one event** (WP5). `move_played_v1` carries the position, the referee's halfmove count and the repetition count, so `on_move_played_v1_maybe_end_game` asks the rules engine and dispatches `end_game_v1` without reading a model or a second stream. The verdict is deliberately *not* in the event: a change of referee must not rewrite a stream.
+- [x] **The read model migrates rather than assumes a fresh file** (WP5). Columns added after the table shipped are declared once in `game_read_model_store:migrations/0` and applied with an idempotent `ALTER TABLE`; the move list is a keyed table because an appended text column is not idempotent under replay. This service still has no deployed instance, so the migration is cheap now and the habit is what matters later.
 - [ ] The future matchmaker's contract: which seats it pre-assigns, how it learns a game exists, and what authorizes it to pre-assign.
 
 ## Editing the diagrams
