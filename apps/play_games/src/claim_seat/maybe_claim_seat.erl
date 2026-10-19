@@ -75,6 +75,17 @@ claimed(State, Cmd, Colour, Caller) ->
     {ok, [seat_claimed_v1:to_map(Event)]}.
 
 refused(Reason, State, Cmd, Colour, Caller) ->
+    capped(Reason, game_state:may_record_refusal(State, Caller),
+           State, Cmd, Colour, Caller).
+
+%% PAST THE CAP THE ANSWER IS THE SAME AND THE EVIDENCE IS NOT. A node that
+%% holds no seat reaches this clause every time it asks, so without the cap one
+%% stranger could write a refusal, and publish its fact, for as long as the game
+%% lives. The number is the Design Gate's (answer 5) and the counter is the one
+%% WP5's move_refused_v1 will use.
+capped(Reason, false, _State, _Cmd, _Colour, _Caller) ->
+    {error, Reason};
+capped(Reason, true, State, Cmd, Colour, Caller) ->
     {ok, Event} = seat_refused_v1:new(#{
         game_id => claim_seat_v1:get_game_id(Cmd),
         player_node_id => Caller,

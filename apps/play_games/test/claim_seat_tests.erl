@@ -28,7 +28,10 @@ store_test_() ->
       {timeout, 60, fun a_claim_on_an_archived_game_records_nothing/0},
       {timeout, 60, fun a_caller_cannot_seat_another_node_from_the_body/0},
       {timeout, 60, fun an_unknown_colour_is_refused_without_an_event/0},
-      {timeout, 60, fun the_seats_map_is_the_whole_state_after_the_claim/0}]}.
+      {timeout, 60, fun the_seats_map_is_the_whole_state_after_the_claim/0},
+      {timeout, 60, fun a_stranger_cannot_grow_the_stream_without_bound/0},
+      {timeout, 60, fun the_refusal_cap_is_per_player_not_per_game/0},
+      {timeout, 60, fun the_refusal_count_survives_a_snapshot/0}]}.
 
 the_claimer_takes_the_colour_it_asked_for() ->
     GameId = born(),
@@ -127,6 +130,44 @@ the_seats_map_is_the_whole_state_after_the_claim() ->
     ?assertEqual(#{white => ?ALICE, black => <<>>}, maps:get(seats, Claimed)),
     ?assertEqual(3, maps:get(status, Claimed)),
     ?assert(is_integer(maps:get(at_ms, Claimed))).
+
+%% A RECORDED REFUSAL IS BOUNDED PER PLAYER, AND "NATURALLY BOUNDED BY
+%% CLAIMANTS" IS NOT A BOUND. A node that holds no seat is not caught by
+%% already_seated, so without a count one stranger can write seat_refused_v1 to
+%% a game's stream, and publish the fact, for as long as the game lives. The
+%% Design Gate settled the number for this class of evidence (answer 5, N = 10
+%% per player per game), and WP5's move_refused_v1 uses the same counter.
+a_stranger_cannot_grow_the_stream_without_bound() ->
+    GameId = born(),
+    {ok, _, _, _} = claim(GameId, ?ALICE, <<"w">>),
+    [begin
+         {error, seat_taken} = claim(GameId, ?CAROL, <<"w">>)
+     end || _ <- lists:seq(1, 10)],
+    %% The eleventh is still refused, and writes nothing.
+    {error, seat_taken} = claim(GameId, ?CAROL, <<"w">>),
+    ?assertEqual(10, length(refused_events(GameId))),
+    ?assertEqual([<<"game_initiated_v1">>, <<"seat_claimed_v1">>] ++
+                 lists:duplicate(10, <<"seat_refused_v1">>),
+                 play_games_test_store:strings(GameId)).
+
+the_refusal_cap_is_per_player_not_per_game() ->
+    GameId = born(),
+    {ok, _, _, _} = claim(GameId, ?ALICE, <<"w">>),
+    [begin {error, seat_taken} = claim(GameId, ?CAROL, <<"w">>) end
+     || _ <- lists:seq(1, 10)],
+    %% One player spending its ten does not silence another.
+    {error, seat_taken} = claim(GameId, ?BOB, <<"w">>),
+    ?assertEqual(11, length(refused_events(GameId))).
+
+%% The count is part of the aggregate state, so it has to survive the snapshot
+%% the store takes: an aggregate restored from one that forgot the count would
+%% start recording again from zero.
+the_refusal_count_survives_a_snapshot() ->
+    State = game_state:record_refusal(game_state:new(<<"game-01a155d187887b2d9828309b42952c86">>),
+                                      ?CAROL),
+    {ok, Restored} = game_state:from_map(game_state:to_map(State)),
+    ?assertEqual(1, game_state:refusal_count(Restored, ?CAROL)),
+    ?assertEqual(0, game_state:refusal_count(Restored, ?BOB)).
 
 %%====================================================================
 %% Helpers

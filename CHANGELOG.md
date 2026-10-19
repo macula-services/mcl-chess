@@ -14,7 +14,10 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   else, so a body cannot seat a second party; first claim wins a colour, a node
   holds one seat, and a claim on a taken or full seat is recorded as
   `seat_refused_v1` (reason `seat_taken` or `game_full`) while still being
-  answered as a refusal. When the second seat is taken,
+  answered as a refusal. The recording is capped at ten per player per game
+  (the Design Gate's number): past it the refusal is answered exactly as
+  before and nothing is written, so a node holding no seat cannot grow a game's
+  stream. When the second seat is taken,
   `on_seat_claimed_v1_maybe_start_game` dispatches the internal `start_game`,
   which writes `game_started_v1` with both holders by colour, the position and
   the clocks the game starts with. Three more facts go out on

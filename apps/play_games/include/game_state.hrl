@@ -22,5 +22,9 @@
     clocks = #{white => 0, black => 0} :: #{white := integer(), black := integer()},
     status = 0 :: non_neg_integer(),
     initiator_node_id = <<>> :: binary(),
+    %% Recorded refusals per node id: the one piece of state that is not in the
+    %% game itself, and the thing that bounds the evidence stream. Replay
+    %% rebuilds it from the events, so it is part of the state, not of a desk.
+    refusals = #{} :: #{binary() => non_neg_integer()},
     at_ms = 0 :: non_neg_integer()
 }).

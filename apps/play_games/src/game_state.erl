@@ -20,8 +20,17 @@
 -export([position/1, to_move/1, ply/1, clocks/1]).
 -export([seat/2, is_seated/2, both_seats_filled/1]).
 -export([colour_key/1, colour_wire/1]).
+-export([record_refusal/2, refusal_count/2, may_record_refusal/2,
+         max_recorded_refusals/0]).
 -export([is_archived/1, is_initiated/1, is_started/1, is_unstarted/1]).
 -export([to_wire/1]).
+
+%% The cap on recorded refusals per player per game, settled at the Design Gate
+%% (answer 5, N = 10). It exists because a recorded refusal is evidence, and
+%% evidence a stranger can write without bound is a way to grow somebody else's
+%% stream. One definition, so WP5's move_refused_v1 uses this one rather than
+%% inventing a second.
+-define(MAX_RECORDED_REFUSALS, 10).
 
 -opaque t() :: #game_state{}.
 -export_type([t/0]).
@@ -54,10 +63,10 @@ apply_event(State, #{event_type := <<"seat_claimed_v1">>} = Event) ->
     State#game_state{seats = maps:get(seats, Data),
                      status = maps:get(status, Data),
                      at_ms = maps:get(at_ms, Data, State#game_state.at_ms)};
-%% A recorded refusal is evidence on the stream and changes no state: the event
-%% carries the seats unchanged, and the fold says so rather than re-deriving it.
-apply_event(State, #{event_type := <<"seat_refused_v1">>}) ->
-    State;
+%% A recorded refusal is evidence on the stream: it changes no game state, and
+%% it is counted, because the count is what bounds the evidence.
+apply_event(State, #{event_type := <<"seat_refused_v1">>} = Event) ->
+    record_refusal(State, maps:get(player_node_id, event_data(Event)));
 apply_event(State, #{event_type := <<"game_started_v1">>} = Event) ->
     Data = event_data(Event),
     State#game_state{
@@ -88,6 +97,7 @@ to_map(#game_state{} = State) ->
       clocks => State#game_state.clocks,
       status => State#game_state.status,
       initiator_node_id => State#game_state.initiator_node_id,
+      refusals => State#game_state.refusals,
       at_ms => State#game_state.at_ms}.
 
 -spec from_map(map()) -> {ok, t()} | {error, term()}.
@@ -103,6 +113,10 @@ from_map(#{game_id := GameId} = Map) ->
         clocks = maps:get(clocks, Map),
         status = maps:get(status, Map),
         initiator_node_id = maps:get(initiator_node_id, Map, <<>>),
+        %% Defaulted, so a snapshot written before this field existed still
+        %% restores: an aggregate that forgot the count would start recording
+        %% again from zero.
+        refusals = maps:get(refusals, Map, #{}),
         at_ms = maps:get(at_ms, Map, 0)}};
 from_map(_) ->
     {error, missing_game_id}.
@@ -190,6 +204,27 @@ colour_key(_) -> invalid.
 -spec colour_wire(white | black) -> binary().
 colour_wire(white) -> <<"w">>;
 colour_wire(black) -> <<"b">>.
+
+%% @doc Count one recorded refusal by this player.
+-spec record_refusal(t(), binary()) -> t().
+record_refusal(#game_state{refusals = Refusals} = State, NodeId) ->
+    State#game_state{refusals = Refusals#{NodeId => refusal_count(State, NodeId) + 1}}.
+
+%% @doc How many refusals by this player this game has recorded.
+-spec refusal_count(t(), binary()) -> non_neg_integer().
+refusal_count(#game_state{refusals = Refusals}, NodeId) ->
+    maps:get(NodeId, Refusals, 0).
+
+%% @doc Whether another refusal by this player is still worth recording. Past
+%% the cap the caller is refused exactly as before, and nothing is written:
+%% the answer does not change, only the evidence, which is what keeps one
+%% stranger from growing a game's stream for as long as it lives.
+-spec may_record_refusal(t(), binary()) -> boolean().
+may_record_refusal(State, NodeId) ->
+    refusal_count(State, NodeId) < max_recorded_refusals().
+
+-spec max_recorded_refusals() -> non_neg_integer().
+max_recorded_refusals() -> ?MAX_RECORDED_REFUSALS.
 
 -spec is_archived(t()) -> boolean().
 is_archived(#game_state{status = Status}) -> evoq_bit_flags:has(Status, ?GAME_ARCHIVED).
