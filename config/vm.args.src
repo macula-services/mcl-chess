@@ -1,6 +1,18 @@
 ## Node identity and runtime flags for mcl_chess.
+##
+## The cookie is NEVER a literal here: it arrives from the box at run time
+## (compose supplies ${MCL_COOKIE:?}), so an image or a repository cannot carry
+## one. The node name is kept because the Ra member identity is node(): a
+## nameless node is pinned to nonode@nohost, and naming it later would change a
+## live store's identity.
+##
+## ⚠ THE NAME DOES NOT DECIDE WHERE DISTRIBUTION LISTENS. `-name ...@127.0.0.1'
+## is what epmd ADVERTISES; without this line the dist listener still binds
+## every interface. The Containerfile sets ERL_EPMD_ADDRESS for the epmd half,
+## and this line is the listener half.
 -name ${MCL_NODE_NAME}@${MCL_NODE_HOST}
 -setcookie ${MCL_COOKIE}
+-kernel inet_dist_use_interface {127,0,0,1}
 
 +K true
 

@@ -64,7 +64,12 @@ services:
       - MACULA_STATION_NODE_IDS=${MACULA_STATION_NODE_IDS:?set MACULA_STATION_NODE_IDS to the matching 64-hex node ids, comma-separated}
       - MCL_NODE_NAME=mcl_chess
       - MCL_NODE_HOST=127.0.0.1
-      - MCL_COOKIE=mcl_chess
+      # ⚠ NO DEFAULT, AND THE IMAGE DOES NOT CARRY ONE (mcl-om#24). A cookie
+      # baked into the image is a public secret in every pull, and the scaffold
+      # shipped exactly that. This line refuses to start the service until the
+      # box supplies its own, so a container here is never shared-identity.
+      # ERL_EPMD_ADDRESS and inet_dist_use_interface keep dist on loopback.
+      - MCL_COOKIE=${MCL_COOKIE:?set MCL_COOKIE to this box's secret cookie, e.g. openssl rand -hex 32}
       # Labels on the claim this service sends the realm at boot, which the
       # realm's operator sees on the pending row: what is asking, and from
       # which box. MCL_BOX comes from the host that deploys it.

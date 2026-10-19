@@ -69,7 +69,18 @@ ENV RELX_REPLACE_OS_VARS=true
 
 ENV MCL_NODE_NAME=mcl_chess
 ENV MCL_NODE_HOST=127.0.0.1
-ENV MCL_COOKIE=mcl_chess
+# ⚠ NO COOKIE IS SHIPPED IN THIS IMAGE (mcl-om#24). A `-setcookie` value baked
+# into a Containerfile is a public secret in every pull of the image, and the
+# scaffold shipped one. The cookie comes from the box at run time instead: the
+# compose file refuses to start without ${MCL_COOKIE:?}, and vm.args.src reads
+# it from there.
+#
+# Distribution is kept, because the Ra member identity is node(): a nameless
+# node is pinned to nonode@nohost, and adding a name later would change a live
+# store's identity. It is bound to loopback on both halves instead: epmd
+# answers only on 127.0.0.1 here, and vm.args.src sets inet_dist_use_interface,
+# since the node NAME alone does not decide where the listener binds.
+ENV ERL_EPMD_ADDRESS=127.0.0.1
 
 VOLUME ["/etc/mcl/secrets"]
 

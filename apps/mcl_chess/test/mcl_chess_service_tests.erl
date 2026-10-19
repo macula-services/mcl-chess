@@ -159,6 +159,41 @@ the_data_directory_is_answerable_test() ->
 %% built before 0.35; this one opens its own store and must not look like one.
 no_old_store_callbacks_are_exported_test() ->
     ?assertEqual([], mcl_om:leftover_store_callbacks(?SERVICE)).
+
+%%==============================================================================
+%% No shared cookie ships, and distribution is not on every interface
+%%==============================================================================
+
+%% ⚠ THIS GUARD EXISTS BECAUSE THE TEMPLATE SHIPPED BOTH FAULTS (mcl-om#24).
+%%
+%% `ENV MCL_COOKIE=<the service name>' baked one public cookie into every pull
+%% of the image, and `@127.0.0.1' as the node name is what epmd ADVERTISES, not
+%% where the dist listener binds: with host networking the listener was on every
+%% interface behind a guessable secret.
+%%
+%% Distribution is deliberately KEPT, because the Ra member identity is node()
+%% and a nameless node is pinned to nonode@nohost forever. What must hold is
+%% that the secret comes from the box at run time and that both halves of dist
+%% stay on loopback. Neither half can be noticed by running the code, so this
+%% reads the three shipped files, in the same spirit as the runtime pin above.
+no_cookie_ships_and_distribution_stays_on_loopback_test() ->
+    Containerfile = shipped("Containerfile"),
+    ?assertEqual(nomatch, binary:match(Containerfile, <<"ENV MCL_COOKIE">>),
+                 {cookie_baked_into_the_image, <<"ENV MCL_COOKIE">>}),
+    ?assertNotEqual(nomatch,
+                    binary:match(Containerfile, <<"ENV ERL_EPMD_ADDRESS=127.0.0.1">>),
+                    {epmd_not_bound_to_loopback, <<"Containerfile">>}),
+    VmArgs = shipped("config/vm.args.src"),
+    ?assertNotEqual(nomatch, binary:match(VmArgs, <<"-setcookie ${MCL_COOKIE}">>),
+                    {cookie_not_read_from_the_environment, <<"config/vm.args.src">>}),
+    ?assertNotEqual(nomatch,
+                    binary:match(VmArgs,
+                                 <<"-kernel inet_dist_use_interface {127,0,0,1}">>),
+                    {dist_listener_not_bound_to_loopback, <<"config/vm.args.src">>}),
+    Compose = shipped("deploy/docker-compose.yml"),
+    ?assertNotEqual(nomatch, binary:match(Compose, <<"MCL_COOKIE=${MCL_COOKIE:?">>),
+                    {compose_does_not_refuse_to_start_without_a_cookie,
+                     <<"deploy/docker-compose.yml">>}).
 %%==============================================================================
 %% The runtime is pinned in two places, and neither is the one you are running
 %%==============================================================================
@@ -217,6 +252,12 @@ pinned(Relative, Pattern) ->
     {match, [Version]} = re:run(Text, Pattern,
                                 [multiline, {capture, all_but_first, binary}]),
     Version.
+
+%% A shipped file, read as text: the guards above are about what the repo and
+%% the image carry, not about what the running code does.
+shipped(Relative) ->
+    {ok, Text} = file:read_file(alongside(Relative)),
+    Text.
 
 %% Relative to the beam rather than the working directory, because eunit runs
 %% from wherever the developer happens to be standing.
