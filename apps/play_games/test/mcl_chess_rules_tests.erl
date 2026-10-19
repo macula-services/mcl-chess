@@ -113,6 +113,17 @@ same_position_hashes_the_same_test() ->
     ?assertNotEqual(element(1, RouteA), element(1, RouteB)),
     ?assertEqual(element(2, RouteA), element(2, RouteB)).
 
+%%% A hostile caller can send bytes that are not text at all. A payload the
+%%% referee is meant to judge must be refused in its own vocabulary, never raise
+%%% in the caller's process.
+not_utf8_is_refused_not_raised_test() ->
+    ?assertEqual({error, invalid_fen},
+                 mcl_chess_rules:validate_move(<<255, 254>>, <<"e2e4">>)),
+    ?assertEqual({error, invalid_move},
+                 mcl_chess_rules:validate_move(?START, <<255, 254>>)),
+    ?assertEqual({error, invalid_fen}, mcl_chess_rules:apply_move(<<255>>, <<"e2e4">>)),
+    ?assertEqual({error, invalid_fen}, mcl_chess_rules:status(<<255>>, 0)).
+
 %%% status/2
 
 active_test() ->
@@ -147,9 +158,18 @@ status_refuses_a_non_position_test() ->
 
 %%% The clock is the referee's, not the FEN's: a counter past what a FEN usually
 %%% carries is still accepted, and does not change a v1 verdict.
+%%%
+%%% It also has to keep working past a byte. Nothing in v1 ends a game on the
+%%% move counter (mcl-chess#4), so a game where neither side captures or moves a
+%%% pawn can run well past 255 halfmoves, and a refused value there would make
+%%% status unreachable for the rest of that game: no checkmate and no stalemate
+%%% would ever be detected again.
 long_halfmove_count_is_still_active_test() ->
     ?assertEqual(active, mcl_chess_rules:status(?START, 0)),
-    ?assertEqual(active, mcl_chess_rules:status(?START, 150)).
+    ?assertEqual(active, mcl_chess_rules:status(?START, 150)),
+    ?assertEqual(active, mcl_chess_rules:status(?START, 300)),
+    ?assertEqual(active, mcl_chess_rules:status(?START, 65535)),
+    ?assertEqual(active, mcl_chess_rules:status(?START, 4294967296)).
 
 %%% Helpers
 

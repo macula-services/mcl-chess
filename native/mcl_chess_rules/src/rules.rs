@@ -140,17 +140,21 @@ fn playable_en_passant(position: &Board) -> Option<File> {
 ///
 /// It is taken and documented rather than read, and that is the honest
 /// statement of where this stands: no v1 verdict depends on it, because a draw
-/// by the move counter is a claim in v2 (plan §10.4), not an automatic verdict
-/// in v1. The parameter is in the Design Gate's signature (plan §8.7) and the
-/// v2 claim path reads it, so it is not removed here; see mcl-chess#4, which
-/// records the consequence: a v1 game whose position stays playable is `active`
-/// however long the counter runs, and nothing ends it.
-pub fn status(fen: &str, halfmove_clock: u8) -> Result<Verdict, MoveError> {
+/// by the move counter is a claim in v2 (mcl-chess#1, design of record), not an
+/// automatic verdict in v1. The parameter is in the Design Gate's signature and
+/// the v2 claim path reads it, so it is not removed here; see mcl-chess#4,
+/// which records the consequence: a v1 game whose position stays playable is
+/// `active` however long the counter runs, and nothing ends it.
+///
+/// It is a `u64` on purpose. Nothing ends a v1 game on the counter, so the
+/// count can leave the range of a byte or of a `u32`, and a call that refused
+/// such a value would make the referee unable to judge the rest of that game.
+pub fn status(fen: &str, halfmove_clock: u64) -> Result<Verdict, MoveError> {
     let position = board(fen)?;
     Ok(verdict(&position, halfmove_clock))
 }
 
-fn verdict(position: &Board, _halfmove_clock: u8) -> Verdict {
+fn verdict(position: &Board, _halfmove_clock: u64) -> Verdict {
     if !position.generate_moves(|_| true) {
         return if position.checkers().is_empty() {
             Verdict::Stalemate
@@ -204,6 +208,12 @@ fn parse_uci(uci: &str) -> Result<Move, MoveError> {
 /// A quiet king move to g1 is not a thing that exists (a king moves one
 /// square), so there is no ambiguity to preserve: `e1g1` with no castle
 /// available is simply illegal, which is what the final legality check says.
+///
+/// This is exact for the referee's own positions, which start from the standard
+/// FEN and only move forward. Chess960 would not be: with the king on f1 and the
+/// right still held, `f1g1` is a quiet move that this would read as a castle.
+/// Shredder FEN parses, so that position could be handed in, but nothing in v1
+/// creates one.
 fn standard_castling(position: &Board, mv: Move) -> Option<Move> {
     if mv.promotion.is_some() {
         return None;
