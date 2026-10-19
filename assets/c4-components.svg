@@ -110,9 +110,9 @@
 <text class="t-desc" x="528" y="566">stops and the opponent's starts on move_played_v1;</text>
 <text class="t-desc" x="528" y="582">both stop at game_ended_v1. The deadline arrives in</text>
 <text class="t-desc" x="528" y="598">handle_info/2, the hook evoq 1.27.0 added.</text>
-<rect class="b-later" x="32" y="648" width="456" height="110" rx="10"/>
+<rect class="b-cmp" x="32" y="648" width="456" height="110" rx="10"/>
 <text class="t-code" x="48" y="676">mcl_chess_rules</text>
-<text class="t-type" x="48" y="694">[Rust NIF, planned WP4]</text>
+<text class="t-type" x="48" y="694">[Rust NIF over cozy-chess, stateless]</text>
 <text class="t-desc" x="48" y="718">validate_move(Fen, Uci), apply_move(Fen, Uci) -&gt; Fen' and the</text>
 <text class="t-desc" x="48" y="734">Zobrist hash, status(Fen, Halfmove) -&gt; active | checkmate |</text>
 <text class="t-desc" x="48" y="750">stalemate | insufficient_material. Legal-only generation.</text>

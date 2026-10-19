@@ -251,7 +251,7 @@ def components():
            "stops and the opponent's starts on move_played_v1;",
            "both stop at game_ended_v1. The deadline arrives in",
            "handle_info/2, the hook evoq 1.27.0 added."], code=True)
-    d.box("b-later", 32, 648, 456, 110, "mcl_chess_rules", "[Rust NIF, planned WP4]",
+    d.box("b-cmp", 32, 648, 456, 110, "mcl_chess_rules", "[Rust NIF over cozy-chess, stateless]",
           ["validate_move(Fen, Uci), apply_move(Fen, Uci) -> Fen' and the",
            "Zobrist hash, status(Fen, Halfmove) -> active | checkmate |",
            "stalemate | insufficient_material. Legal-only generation."], code=True)

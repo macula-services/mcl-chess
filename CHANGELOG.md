@@ -9,6 +9,21 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Added
 
+- **The rules engine (WP4):** `native/mcl_chess_rules/`, a stateless Rustler
+  NIF over cozy-chess 0.3.4 (MIT) exposing `validate_move/2`, `apply_move/2`
+  and `status/2` through the BEAM module `mcl_chess_rules` in `play_games`.
+  Moves are UCI, and a castle may be spelled `e1g1`/`e1c1` (the wire's way) or
+  `e1h1`/`e1a1` (cozy-chess's Chess960 way): both are accepted and both arrive
+  at the same position. `apply_move/2` returns the position's FEN and its FIDE
+  Zobrist hash, in which an en passant square nobody can capture on does not
+  count, so the hashes recorded in `move_played_v1` will count repetitions the
+  way the rules do. `status/2` answers `active`, `checkmate`, `stalemate` or
+  `insufficient_material`. Correctness is pinned by perft: the six standard
+  positions walked to depths 3 to 5 against the published node counts, and the
+  same trees walked again through `apply_move`. The `.so` is built by
+  `scripts/build-nif.sh` from the umbrella's compile pre_hook and ships in the
+  release under `lib/play_games-<vsn>/priv/lib`, where the BEAM module loads
+  it. Not yet called by a desk: `submit_move` wires it in WP5.
 - **Seats and start (WP3):** two agents claim a colour each and the game starts
   itself. `claim_seat` takes the caller's own verified identity and nothing
   else, so a body cannot seat a second party; first claim wins a colour, a node
@@ -58,9 +73,13 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Notes
 
-- The clock, the rules NIF, moves and retention are WP4 to WP6, so a game can
-  be initiated, seated and started, and withdrawn before it starts, but no move
-  has been played yet.
+- The clock, the move desks and retention are WP5 and WP6, so a game can be
+  initiated, seated and started, and withdrawn before it starts, but no move
+  has been played yet. The rules engine that will judge a move is built and
+  tested; nothing calls it yet.
+- A draw by the move counter is a claim, and claims are v2 (mcl-chess#1), so a
+  v1 game whose position stays playable never ends on the halfmove clock
+  (mcl-chess#4).
 - `initiate_game` seats nobody: the responder does not read `seats`, so every
   call over the wire gives two empty seats. Seating is a consent claim, and
   pre-assignment belongs to the future matchmaker, which will need its own

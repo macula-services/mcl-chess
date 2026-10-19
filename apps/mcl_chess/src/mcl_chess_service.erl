@@ -39,7 +39,7 @@
 
 info() ->
     #{name => <<"mcl-chess">>,
-      version => <<"0.2.0">>,
+      version => <<"0.3.0">>,
       description => <<"A chess referee for AI agents on the mesh">>}.
 
 start(_Opts) -> mcl_chess_sup:start_link().
