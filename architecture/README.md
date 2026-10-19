@@ -2,7 +2,7 @@
 
 *This exists so two strangers' agents can play a timed game of chess on the mesh with a referee neither of them has to trust the other to be.*
 
-**Status: 2026-10-19, WP1.** The Design Gate is settled (mcl-chess#1, answer 6 approved the two evoq hooks on 12 Oct) and WP0 has shipped them: evoq 1.27.0 and reckon_evoq 2.8.0 are released. This document is WP1. The code that makes the service exist is WP2 and later, so every runtime element below says *planned* and names the work package that builds it. What is planned is tracked in [#1](https://github.com/macula-services/mcl-chess/issues/1).
+**Status: 2026-10-19, WP2.** The Design Gate is settled (mcl-chess#1, answer 6 approved the two evoq hooks on 12 Oct), WP0 shipped them (evoq 1.27.0 and reckon_evoq 2.8.0 are released), and WP2 built the walking skeleton: a game is initiated and withdrawn through all three departments with its facts on the mesh. Everything else below still says *planned* and names the work package that builds it. What is planned is tracked in [#1](https://github.com/macula-services/mcl-chess/issues/1).
 
 `mcl-chess` is an **mcl_om mesh service**, like any `mcl-*` service: one OTP release in one OCI container on its own box, with its node identity, realm admission, mesh pool and `/health` from `mcl-om`. It joins the mesh through pinned stations and it is not part of any station.
 
@@ -14,7 +14,7 @@ Legend, the same in all three diagrams: amber is the element in scope, lavender-
 
 | Element | Kind | Role | Status |
 | --- | --- | --- | --- |
-| mcl-chess | In scope | The referee: validates, clocks and sequences one game, records a disputable transcript, publishes facts. Never plays, never picks a move, never contacts an agent | planned (WP2 onward) |
+| mcl-chess | In scope | The referee: validates, clocks and sequences one game, records a disputable transcript, publishes facts. Never plays, never picks a move, never contacts an agent | built as a skeleton (WP2): initiate and withdraw; seats, clock and rules are WP3 to WP6 |
 | Player A's agent, Player B's agent | External | The two seats. An agent picks its moves; calling `claim_seat` is its consent to the time control | external |
 | macula-mcp | External | Each agent's harness: how it reaches the mesh, and the scheduler it waits on. The thinking half of the game lives here, not in the service | external, built |
 | Macula mesh | Macula infrastructure | The pinned stations are the entry points (QUIC); the union of stations routes an org procedure; the facts travel its topics | built |
@@ -32,13 +32,13 @@ Legend, the same in all three diagrams: amber is the element in scope, lavender-
 
 | Container | Technology | Responsibility | Status |
 | --- | --- | --- | --- |
-| mcl_chess (boot app) | mcl_om mesh service, OCI image, OTP release | Opens the event store before `mcl_om:boot/1`, supervises the three departments, serves `/health`, advertises the capabilities and names any missing D25 grant | planned (WP2) |
-| play_games | CMD app, evoq | One desk per lifecycle slice, from game initiation to archive. The only writer of events | planned (WP2 partial, WP3 to WP6 the rest) |
-| project_games | PRJ app, evoq | One projection per event, writing the read model and the status label computed at projection time | planned (WP2 partial) |
-| query_games | QRY app, esqlite | `get_game_by_id`, by status, page, by player. Answers from the read model, never from events | planned (WP2 partial) |
-| Event store | reckon_db, volume `/data` | The source of truth: one stream per game, replayed to rebuild the aggregate on demand | planned (WP2) |
-| Read model | SQLite through esqlite | Board, move list, clocks, status and label: what queries serve and what a board viewer rebuilds from | planned (WP2) |
-| Identity and realm admission | Node identity key, D25 grants | The identity key names the service to the realm; a procedure without its grant is refused at the boundary | planned (WP2) |
+| mcl_chess (boot app) | mcl_om mesh service, OCI image, OTP release | Opens the event store before `mcl_om:boot/1`, supervises the three departments, serves `/health`, advertises the capabilities and names any missing D25 grant | built (WP2) |
+| play_games | CMD app, evoq | One desk per lifecycle slice, from game initiation to archive. The only writer of events | built for initiate and withdraw (WP2); claim, start, move, resign, flag and archive are WP3 to WP6 |
+| project_games | PRJ app, evoq | One projection per event, writing the read model and the status label computed at projection time | built for both skeleton events (WP2) |
+| query_games | QRY app, esqlite | `get_game_by_id`, by status, page, by player. Answers from the read model, never from events | `get_game_by_id` built (WP2); the other three are later |
+| Event store | reckon_db, volume `/data` | The source of truth: one stream per game, replayed to rebuild the aggregate on demand | built (WP2) |
+| Read model | SQLite through esqlite | Board, move list, clocks, status and label: what queries serve and what a board viewer rebuilds from | built for the skeleton rows (WP2) |
+| Identity and realm admission | Node identity key, D25 grants | The identity key names the service to the realm; a procedure without its grant is refused at the boundary | wired (WP2); the three grants are an operator step (WP8) |
 | ghcr.io | External | The release image by digest, signed and attested | planned (WP2) |
 | macula-fleet | Planned, WP8 | The fleet definition: edge config env, `reconcile.manifest` entry, digest pin, canary first | out of this range |
 
@@ -51,17 +51,17 @@ Legend, the same in all three diagrams: amber is the element in scope, lavender-
 | Component | Kind | Responsibility | Status |
 | --- | --- | --- | --- |
 | `game_aggregate`, `game_state`, `game_status.hrl` | `evoq_aggregate` and its state module | Replays its own stream to the state: seats, position, `to_move`, ply, clocks, status flags, outcome. Every guard lives in a `maybe_*` handler, never in a caller | planned (WP2) |
-| `initiate_game/` | Desk, CMD | `initiate_game_v1` to `game_initiated_v1`: mints the stream id through `evoq_event_store:new_stream_id/1` and records the full initial state | planned (WP2) |
+| `initiate_game/` | Desk, CMD | `initiate_game_v1` to `game_initiated_v1`: mints the stream id through `evoq_event_store:new_stream_id/1` and records the full initial state | built (WP2) |
 | `claim_seat/` | Desk, CMD | `seat_claimed_v1`, `seat_refused_v1`: a claim is for a color, the first claim wins it, the third claimer is refused | planned (WP3) |
 | `start_game/` | Desk, CMD, internal | `game_started_v1` once both seats are filled. Dispatched by a policy, never served on the wire | planned (WP3) |
 | `submit_move/` | Desk, CMD | `move_played_v1` for a legal move by the seat to move, `move_refused_v1` (the evidence class) for a seat holder's foul attempt | planned (WP5) |
 | `resign_game/` | Desk, CMD | `game_ended_v1` with outcome `forfeit` | planned (WP5) |
-| `withdraw_game/` | Desk, CMD | `game_archived_v1` with reason `withdrawn`, pre-start only: a game that never began is not an end | planned (WP2) |
+| `withdraw_game/` | Desk, CMD | `game_archived_v1` with reason `withdrawn`, pre-start only: a game that never began is not an end | built (WP2) |
 | `flag_clock/`, `end_game/` | Desks, CMD, internal | `clock_flagged_v1` and `game_ended_v1`, dispatched by the clock instance and by policies | planned (WP6) |
-| `archive_game/` | Desk, CMD, internal | `game_archived_v1` after the retention window: the death slice | planned (WP2) |
+| `archive_game/` | Desk, CMD, internal | `game_archived_v1` after the retention window: the death slice | the desk and its retention policy arrive with WP6, which is where the plan puts the window; the event module is already built and shared with `withdraw_game/` |
 | `on_* policies` | `evoq_event_handler`, `replay_policy -> skip` | Subscribe by event type and dispatch the next command: seats full starts the game, a terminal position or a flagged clock ends it, an ended game is archived after retention | planned (WP3, WP5, WP6) |
 | Clock instance per game | `evoq_process_manager`, one per game | Reads events only: white's clock starts, the mover's stops and the opponent's starts, both stop at the end. Its deadline arrives in `handle_info/2`, the hook evoq 1.27.0 added | planned (WP6) |
-| `mcl_chess_facts` | Module, the only one naming the mesh SDK | Owns every topic and every translation. Desks emit through it; nothing else names a topic | planned (WP2) |
+| `mcl_chess_facts` | Module, the only one naming the mesh SDK | Owns every topic and every translation. Desks emit through it; nothing else names a topic | built for both skeleton facts (WP2) |
 | `mcl_chess_rules` | Rust NIF over cozy-chess, stateless | `validate_move/2`, `apply_move/2` returning the FEN and its Zobrist hash, `status/2`. Legal-only generation | planned (WP4) |
 | evoq 1.27.0 | The only application surface | Commands, events, aggregate, handlers, process managers, the router and bit flags. The adapter is named in `sys.config` only: no desk touches the store | built (released 2026-10-19) |
 
@@ -100,6 +100,7 @@ Level 4 is a table rather than a picture: the aggregate record, its state module
 - [x] **Consent by seat claim; seats are by color, not by role.** The initiator is not pinned to white.
 - [x] **Wire names `mcl-chess/<verb>`**, no `_v1` in the name; the version is a capability field (Design Gate answer 1).
 - [x] **The two evoq hooks shipped** in evoq 1.27.0 and reckon_evoq 2.8.0, so WP6 needs no node-wide clock fallback and no hand-rolled stream id (Design Gate answer 6, WP0).
+- [x] **The pre-start withdraw archives directly** (WP2). The plan's desk table splits the death slice along its trigger: `withdraw_game/` serves the initiator's pre-start withdraw and `archive_game/` is the retention path dispatched by a policy. WP2 built the first and the shared `game_archived_v1` event; the second arrives with the retention policy in WP6, which is the work package the plan gives that policy to. Nothing was invented to bridge the gap, and there is no stub desk waiting for a caller.
 - [ ] The future matchmaker's contract: which seats it pre-assigns and how it learns a game exists.
 
 ## Editing the diagrams

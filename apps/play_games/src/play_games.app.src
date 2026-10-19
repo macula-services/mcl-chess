@@ -1,0 +1,17 @@
+{application, play_games, [
+    {description, "mcl-chess CMD division: the Game aggregate, its commands and events."},
+    {vsn, "0.1.0"},
+    {registered, []},
+    {mod, {play_games_app, []}},
+    {applications, [
+        kernel,
+        stdlib,
+        crypto,
+        evoq,
+        reckon_gater
+    ]},
+    {env, []},
+    {modules, []},
+    {licenses, ["Apache-2.0"]},
+    {links, [{"GitHub", "https://github.com/macula-services/mcl-chess"}]}
+]}.

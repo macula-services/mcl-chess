@@ -1,0 +1,15 @@
+{application, query_games, [
+    {description, "mcl-chess QRY division: the read model, answered."},
+    {vsn, "0.1.0"},
+    {registered, [game_query_store]},
+    {mod, {query_games_app, []}},
+    {applications, [
+        kernel,
+        stdlib,
+        esqlite
+    ]},
+    {env, []},
+    {modules, []},
+    {licenses, ["Apache-2.0"]},
+    {links, [{"GitHub", "https://github.com/macula-services/mcl-chess"}]}
+]}.

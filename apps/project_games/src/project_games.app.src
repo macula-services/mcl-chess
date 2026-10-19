@@ -1,0 +1,22 @@
+{application, project_games, [
+    {description, "mcl-chess PRJ division: events to the sqlite read model."},
+    {vsn, "0.1.0"},
+    {registered, [game_read_model_store]},
+    {mod, {project_games_app, []}},
+    %% NOTE what is deliberately NOT here: play_games. The projections read
+    %% the status labels through game_status, a pure module, and calling it
+    %% needs the module loaded, not the app started. Declaring the CMD app
+    %% here would boot its mesh emitters into the PRJ test env, and an
+    %% emitter's mesh_unavailable error stalls the $all delivery every
+    %% projection depends on. The facade's boot order covers the release.
+    {applications, [
+        kernel,
+        stdlib,
+        evoq,
+        esqlite
+    ]},
+    {env, []},
+    {modules, []},
+    {licenses, ["Apache-2.0"]},
+    {links, [{"GitHub", "https://github.com/macula-services/mcl-chess"}]}
+]}.
