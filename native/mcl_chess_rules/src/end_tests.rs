@@ -136,14 +136,42 @@ fn a_bare_king_cannot_mate() {
 /// One minor piece cannot mate a bare king, because nothing on the board can
 /// block a flight square. Give the defender a piece and the same material can
 /// mate with help, which FIDE 6.9 counts: "any possible series of legal moves".
+///
+/// The colour of the two bishops decides it. With the bare king on a8 and the
+/// black bishop on b8, White Kb6 and Bb7 is mate: the king covers a7 and the
+/// black bishop is shut out of its own escape square. Two bishops on the same
+/// colour of square can never do that, and this function still answers "can
+/// mate" for them, the one shape it over-credits; `status/2` has ended such a
+/// game as insufficient material before a flag asks, so nothing is recorded
+/// wrongly by it.
 #[test]
 fn one_minor_piece_needs_something_to_block_with() {
     let knight = "4k3/8/8/8/8/8/8/4KN2 w - - 0 1";
     assert!(cannot_mate(knight, "w").unwrap());
     let knight_vs_pawn = "4k3/4p3/8/8/8/8/8/4KN2 w - - 0 1";
     assert!(!cannot_mate(knight_vs_pawn, "w").unwrap());
-    let bishop_vs_bishop = "2b1k3/8/8/8/8/8/8/4KB2 w - - 0 1";
-    assert!(!cannot_mate(bishop_vs_bishop, "w").unwrap());
+    let opposite_coloured_bishops = "1b2k3/8/8/8/8/8/8/4KB2 w - - 0 1";
+    assert!(!cannot_mate(opposite_coloured_bishops, "w").unwrap());
+    assert_eq!(
+        status(opposite_coloured_bishops, 0).unwrap(),
+        Verdict::Active,
+        "opposite colours are not dead, so the flag path has to judge them"
+    );
+    assert_eq!(
+        status("kb6/1B6/1K6/8/8/8/8/8 b - - 0 1", 0).unwrap(),
+        Verdict::Checkmate,
+        "the mate the helpmate argument rests on: Kb6 and Bb7 against Ka8 and Bb8"
+    );
+    let same_coloured_bishops = "2b1k3/8/8/8/8/8/8/4KB2 w - - 0 1";
+    assert!(
+        !cannot_mate(same_coloured_bishops, "w").unwrap(),
+        "the over-credit this function is allowed to make"
+    );
+    assert_eq!(
+        status(same_coloured_bishops, 0).unwrap(),
+        Verdict::InsufficientMaterial,
+        "and the same colour case never reaches the flag path, because status ends it first"
+    );
 }
 
 /// The issue's own example: the flagged side holds a queen, the opponent a bare
@@ -156,14 +184,19 @@ fn the_flagged_sides_material_is_not_the_opponents() {
     assert!(!cannot_mate(queen, "w").unwrap(), "white has a queen");
 }
 
-/// Two minor pieces are treated as able to mate. Two knights against a bare
-/// king is the one position that over-credits: no mate exists there, and the
-/// referee errs towards recording a win rather than silently drawing a game
-/// nobody claimed was drawn.
+/// Two minor pieces are treated as able to mate, and two knights against a bare
+/// king is no exception: no mate can be forced, but one exists, and FIDE 6.9
+/// counts "any possible series of legal moves". With the bare king on a8, White
+/// Kb6, Nc7 and Nd7 is mate, with nothing having to move out of the way first.
 #[test]
 fn two_minor_pieces_are_able_to_mate() {
     let two_knights = "4k3/8/8/8/8/8/8/1N2KN2 w - - 0 1";
     assert!(!cannot_mate(two_knights, "w").unwrap());
+    assert_eq!(
+        status("k7/2NN4/1K6/8/8/8/8/8 b - - 0 1", 0).unwrap(),
+        Verdict::Checkmate,
+        "the two knight mate the answer rests on: Kb6, Nc7 and Nd7 against Ka8"
+    );
     let knight_and_bishop = "4k3/8/8/8/8/8/8/1N2KB2 w - - 0 1";
     assert!(!cannot_mate(knight_and_bishop, "w").unwrap());
 }

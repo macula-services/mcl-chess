@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Reproduce (or refute) mcl-chess#7: a NIF shared object rewritten in place
 # while a live VM has it mapped. Fable's diagnosis, from the core at
-# 2026-10-17: the .so's fini_array[0] read as 0 because the file's pages under
-# the mapping were replaced after the loader had relocated them.
+# 2026-10-20 00:23 CEST: the .so's fini_array[0] read as 0 because the file's
+# pages under the mapping were replaced after the loader had relocated them.
 #
 # Usage: fault-in-place.sh <mode> [rounds]
 #   mode = overwrite : install the way build-nif.sh used to, `cp src dst`

@@ -326,11 +326,22 @@ fn count(squares: cozy_chess::BitBoard) -> usize {
 /// * a bare king: it cannot, ever;
 /// * exactly one minor piece: it can mate only when the other side still has a
 ///   piece or a pawn of its own to block with;
-/// * two or more minor pieces: treated as able to mate. Two knights against a
-///   bare king is the one position this over-credits, and no mate exists there;
-///   it errs towards recording a win, which is the safe direction for a referee
-///   whose record is what a dispute is settled from. The exact dead-position
-///   definition is wider and is a v2 concern.
+/// * two or more minor pieces: treated as able to mate.
+///
+/// Two knights against a bare king is not an over-credit. No mate can be forced,
+/// but a mate exists, and FIDE 6.9 asks for one reachable "by any possible
+/// series of legal moves", which a helpmate satisfies. With the bare king on a8,
+/// White Kb6, Nc7 and Nd7 is mate: Nc7 checks, the king covers a7 and b7, and
+/// Nd7 covers b8.
+///
+/// The shape this does over-credit is a lone bishop against a side whose only
+/// piece is a bishop on the same colour of square as its own. That defender can
+/// never occupy the mating square, so no mate exists, and the answer here is
+/// still "can mate". It records nothing wrongly, because `status/2` has already
+/// ended such a game as insufficient material before a flag asks the question,
+/// and it errs towards recording a win, which is the safe direction for a
+/// referee whose record is what a dispute is settled from. The exact
+/// dead-position definition is wider and is a v2 concern.
 pub fn cannot_mate(fen: &str, color: &str) -> Result<bool, MoveError> {
     let position = board(fen)?;
     let side = colour(color).ok_or(MoveError::InvalidMove)?;
