@@ -62,12 +62,20 @@ the_deadline_fires_a_flag_for_the_seat_to_move() ->
     ?assertEqual(#{command_type => flag_clock_v1,
                    game_id => ?GAME,
                    player_node_id => ?ALICE}, Command#evoq_command.payload),
-    %% Fired once: the instance no longer holds that deadline, so the same
-    %% message arriving again asks for nothing.
-    ?assertEqual(undefined, maps:get(deadline_ms, Fired)),
-    ?assertEqual({noreply, Fired},
+    %% THE DEADLINE IS KEPT AND ASKED AGAIN. A failed dispatch is only logged by
+    %% evoq's PM runtime, so a cleared deadline would leave a player who is out
+    %% of time in a game that never ends. The flag event is what clears it.
+    ?assertEqual(Deadline, maps:get(deadline_ms, Fired)),
+    ?assertNotEqual(undefined, maps:get(timer, Fired)),
+    {noreply, _Again, [Retry]} =
+        game_clock_pm:handle_info({game_clock_deadline, ?GAME, Deadline, white}, Fired),
+    ?assertMatch(#evoq_command{command_type = flag_clock_v1}, Retry),
+    %% And the event that settles it stops the clock for good.
+    Settled = handled(flagged_event(3000), Fired),
+    ?assertEqual(undefined, maps:get(deadline_ms, Settled)),
+    ?assertEqual({noreply, Settled},
                  game_clock_pm:handle_info({game_clock_deadline, ?GAME, Deadline, white},
-                                           Fired)).
+                                           Settled)).
 
 a_message_for_a_replaced_deadline_does_nothing() ->
     %% The move landed and took the turn with it: the message from the earlier

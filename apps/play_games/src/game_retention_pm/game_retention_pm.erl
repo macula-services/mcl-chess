@@ -86,9 +86,26 @@ matches(State, GameId, Deadline) ->
         andalso maps:get(deadline_ms, State) =:= Deadline.
 
 fired(true, GameId, State) ->
-    {noreply, stop(State), [archive_command(GameId)]};
+    {noreply, rearmed(State), [archive_command(GameId)]};
 fired(false, _GameId, State) ->
     {noreply, State}.
+
+%% THE SAME RULE AS THE CLOCK'S: a failed dispatch is only logged by evoq's PM
+%% runtime, so the deadline is kept and asked again rather than cleared. What
+%% clears it is `game_archived_v1', the event that says the death slice ran. A
+%% game therefore outlives its window only while the store refuses the write.
+rearmed(State) ->
+    GameId = maps:get(game_id, State),
+    Deadline = maps:get(deadline_ms, State),
+    Settled = cancel(State),
+    Timer = erlang:send_after(retry_ms(), self(),
+                              {game_retention_expired, GameId, Deadline}),
+    Settled#{timer => Timer}.
+
+%% The interval a failed archive is tried again at. The clock's own setting, so
+%% an operator has one number to reason about, not two.
+retry_ms() ->
+    game_clock_pm:catch_up_ms().
 
 archive_command(GameId) ->
     {ok, Cmd} = archive_game_v1:new(#{game_id => GameId}),

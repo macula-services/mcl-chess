@@ -130,9 +130,26 @@ matches(State, GameId, Deadline, Colour) ->
 
 fired(true, GameId, Colour, State) ->
     Player = seat(State, Colour),
-    {noreply, stop_clock(State), [flag_command(GameId, Player)]};
+    {noreply, rearmed(State), [flag_command(GameId, Player)]};
 fired(false, _GameId, _Colour, State) ->
     {noreply, State}.
+
+%% THE DEADLINE IS NOT FORGOTTEN WHEN IT FIRES. Dispatching the flag can fail
+%% (a store timeout, a Ra leader change during a station roll) and evoq's PM
+%% runtime only logs a failed dispatch: it retries nothing and there is no event
+%% to re-arm the clock, so a cleared deadline would leave a player who is out of
+%% time in a game that never ends. The instance keeps the deadline and asks again
+%% after `catch_up_ms', and the event that settles it is what clears it: the
+%% flag itself, a move that bought the time, or the end. A retry nobody needs any
+%% more is refused by the desk's own guards, exactly as a late catch-up is.
+rearmed(State) ->
+    GameId = maps:get(game_id, State),
+    Deadline = maps:get(deadline_ms, State),
+    Colour = maps:get(colour, State),
+    Settled = cancel(State),
+    Timer = erlang:send_after(catch_up_ms(), self(),
+                              {game_clock_deadline, GameId, Deadline, Colour}),
+    Settled#{timer => Timer}.
 
 caught_up(true, State) ->
     dispatched(cleared(State), catch_up_commands(State));

@@ -47,10 +47,27 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - **`play_games_pm_registrar`** registers the division's process managers with
   evoq's PM router and registers them again if the router restarts.
 
+### Fixed
+
+- **A failed flag or archive dispatch is asked again.** evoq's process manager
+  runtime only logs a failed dispatch, so one store timeout or Ra leader change
+  during a station roll would have left a player who is out of time in a game
+  that never ends. The instance now keeps its deadline after firing and repeats
+  the dispatch until the event that settles it arrives; the desks' guards refuse
+  a retry nobody needs.
+- **An archived game stops its clock instance.** A game withdrawn before it
+  started (two seats filled, no start dispatched, then the initiator withdraws)
+  never produces an end, so its instance used to live for the node's lifetime and
+  ask for a start on a dead game on every rebuild.
+
 ### Notes
 
 - The retention window is a decision, not a placeholder: 24 hours, configurable
   (the design of record's open question 2).
+- A deadline that passed while the node was down fires when the game's instance
+  is rebuilt, so a restart or a station roll charges its downtime to the side to
+  move. That is "the clock alone decides" taken literally; a clock only the
+  service can see is a clock a player can stop.
 - `end_game_v1`, `flag_clock_v1`, `start_game_v1` and `archive_game_v1` accept
   their payload map as well as their record in `validate/1`, because evoq's own
   router validates the payload when a process manager dispatches the command.

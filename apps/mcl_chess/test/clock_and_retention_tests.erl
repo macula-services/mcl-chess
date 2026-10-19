@@ -18,12 +18,14 @@
 -module(clock_and_retention_tests).
 
 -include_lib("eunit/include/eunit.hrl").
+-include_lib("evoq/include/evoq.hrl").
 -include_lib("reckon_gater/include/reckon_gater_types.hrl").
 
 -define(INITIATOR, <<"a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90">>).
 -define(OPPONENT, <<"b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90a1">>).
 -define(COLLECTOR, mcl_chess_clock_test_collector).
 -define(WINDOW, 300).
+-define(RETRY, 200).
 
 %% A 1 s control: the shortest the boundary accepts (mcl-chess#1, gate answer 2),
 %% which is what keeps this suite quick.
@@ -32,6 +34,7 @@
 clock_and_retention_test_() ->
     {setup, fun setup/0, fun cleanup/1,
      [{timeout, 90, fun a_clock_that_runs_out_ends_the_game/0},
+      {timeout, 90, fun a_failed_flag_dispatch_is_asked_again/0},
       {timeout, 90, fun the_flag_and_the_end_both_reach_the_mesh/0},
       {timeout, 90, fun the_read_model_shows_the_game_was_lost_on_time/0},
       {timeout, 90, fun an_ended_game_is_archived_after_the_window/0},
@@ -49,6 +52,10 @@ setup() ->
                                          Collector ! {published, Topic, Fact}, ok
                                  end),
     application:set_env(play_games, game_retention_ms, ?WINDOW),
+    %% The retry interval a failed dispatch is asked again at, and the delay the
+    %% clock waits before it catches up a half-done sequence: both are
+    %% configuration, and both are short here.
+    application:set_env(play_games, catch_up_ms, ?RETRY),
     {ok, Sub} = evoq_store_subscription:start_link(play_games_test_store:store()),
     unlink(Sub),
     {ok, ReadModel} = game_read_model_store:start_link(Sqlite),
@@ -84,6 +91,7 @@ setup() ->
 cleanup({Dir, Started, Sub, ReadModel, Query, Handlers, Collector}) ->
     [stop(P) || P <- [Sub, ReadModel, Query | Handlers]],
     application:unset_env(play_games, game_retention_ms),
+    application:unset_env(play_games, catch_up_ms),
     Collector ! stop,
     catch unregister(?COLLECTOR),
     meck:unload([mcl_om, macula]),
@@ -107,6 +115,39 @@ a_clock_that_runs_out_ends_the_game() ->
     ?assertEqual(?OPPONENT, maps:get(winner_node_id, Data)),
     %% The flagged clock is the one at zero, and the other never ran.
     ?assertMatch(#{white := 0}, maps:get(clocks, Data)).
+
+a_failed_flag_dispatch_is_asked_again() ->
+    %% A store timeout, or a Ra leader change during a station roll. evoq's PM
+    %% runtime only logs a failed dispatch, so the flag would never be recorded
+    %% and the game would never end: the clock asks again until the event that
+    %% settles it arrives.
+    Counter = counters:new(1, []),
+    meck:new(evoq_router, [passthrough]),
+    meck:expect(evoq_router, dispatch, fun(Command) ->
+        case Command#evoq_command.command_type of
+            flag_clock_v1 ->
+                counters:add(Counter, 1, 1),
+                failed_once(counters:get(Counter, 1), Command);
+            _Other ->
+                meck:passthrough([Command])
+        end
+    end),
+    GameId = started_blitz_game(),
+    Result = events = await_event(GameId, <<"game_ended_v1">>, 600),
+    ?assertEqual(events, Result),
+    meck:unload(evoq_router),
+    %% The first attempt failed and at least one more was made.
+    ?assert(counters:get(Counter, 1) >= 2),
+    [Flagged] = events(GameId, <<"clock_flagged_v1">>),
+    ?assertEqual(?INITIATOR, maps:get(player_node_id, data_of(Flagged))),
+    [Ended] = events(GameId, <<"game_ended_v1">>),
+    ?assertEqual(clock_flag, maps:get(reason, data_of(Ended))).
+
+%% The first dispatch fails and every later one is real.
+failed_once(1, _Command) ->
+    {error, simulated_store_timeout};
+failed_once(_Attempts, Command) ->
+    meck:passthrough([Command]).
 
 the_flag_and_the_end_both_reach_the_mesh() ->
     GameId = started_blitz_game(),

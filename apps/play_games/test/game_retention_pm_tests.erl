@@ -37,12 +37,12 @@ the_end_archives_after_the_window() ->
     ?assertEqual(?GAME, Command#evoq_command.aggregate_id),
     ?assertEqual(#{command_type => archive_game_v1, game_id => ?GAME},
                  Command#evoq_command.payload),
-    %% Fired once: the instance holds no deadline afterwards, so the same
-    %% message asks for nothing.
-    ?assertEqual(undefined, maps:get(deadline_ms, Fired)),
-    ?assertEqual({noreply, Fired},
-                 game_retention_pm:handle_info({game_retention_expired, ?GAME, 6000},
-                                               Fired)).
+    %% The deadline is kept and asked again until `game_archived_v1' says the
+    %% slice ran: a failed dispatch is only logged by evoq's PM runtime.
+    ?assertEqual(6000, maps:get(deadline_ms, Fired)),
+    {noreply, _Again, [Retry]} =
+        game_retention_pm:handle_info({game_retention_expired, ?GAME, 6000}, Fired),
+    ?assertMatch(#evoq_command{command_type = archive_game_v1}, Retry).
 
 the_window_is_configuration() ->
     %% The number an operator sets is the number that is used, and the shipped
