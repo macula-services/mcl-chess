@@ -74,15 +74,18 @@ catch_up_ms() ->
 -spec interested_in() -> [binary()].
 interested_in() ->
     [<<"seat_claimed_v1">>, <<"game_started_v1">>, <<"move_played_v1">>,
-     <<"clock_flagged_v1">>, <<"game_ended_v1">>].
+     <<"clock_flagged_v1">>, <<"game_ended_v1">>, <<"game_archived_v1">>].
 
-%% @doc Route each event to its game's instance, and stop the instance at the end.
+%% @doc Route each event to its game's instance, and stop the instance at the end
+%% or at the archive: an archived game is dead, and an instance that outlived it
+%% would be one nobody can reach with an event again.
 %%
 %% Every routing answer is total: the router calls this inside its own process and
 %% a crash here would silence every process manager on the node (evoq#9), so an
 %% event without a game id is `false' rather than an error.
 -spec correlate(map(), map()) -> {start | continue | stop, binary()} | false.
-correlate(#{event_type := <<"game_ended_v1">>} = Event, _Metadata) ->
+correlate(#{event_type := Type} = Event, _Metadata)
+  when Type =:= <<"game_ended_v1">>; Type =:= <<"game_archived_v1">> ->
     stopping(game_id(Event));
 correlate(#{event_type := _Type} = Event, _Metadata) ->
     continuing(game_id(Event));
@@ -167,9 +170,11 @@ folded(State, _Event) ->
 timed(State, #{event_type := Type} = Event)
   when Type =:= <<"game_started_v1">>; Type =:= <<"move_played_v1">> ->
     schedule(State, data_of(Event));
-%% The flag's end event, and the end itself, stop the clock.
+%% The flag, the end and the archive all stop the clock: after any of them there
+%% is no turn left to time.
 timed(State, #{event_type := Type})
-  when Type =:= <<"clock_flagged_v1">>; Type =:= <<"game_ended_v1">> ->
+  when Type =:= <<"clock_flagged_v1">>; Type =:= <<"game_ended_v1">>;
+       Type =:= <<"game_archived_v1">> ->
     stop_clock(State);
 timed(State, _Event) ->
     State.

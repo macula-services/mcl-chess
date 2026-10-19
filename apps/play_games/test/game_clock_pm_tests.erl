@@ -28,7 +28,8 @@ clock_test_() ->
      {timeout, 30, fun a_full_game_with_no_start_is_caught_up/0},
      {timeout, 30, fun a_started_game_is_not_caught_up/0},
      {timeout, 30, fun a_flag_with_no_end_is_caught_up/0},
-     {timeout, 30, fun a_game_that_ended_is_not_caught_up/0}].
+     {timeout, 30, fun a_game_that_ended_is_not_caught_up/0},
+     {timeout, 30, fun an_archived_game_stops_the_clock/0}].
 
 the_game_started_event_sets_whites_deadline() ->
     State = handled(started_event(1000, #{white => 60000, black => 60000})),
@@ -154,6 +155,19 @@ a_game_that_ended_is_not_caught_up() ->
     ?assertEqual(undefined, maps:get(catch_up, Ended)),
     ?assertEqual({noreply, Ended},
                  game_clock_pm:handle_info({game_clock_catch_up, ?GAME}, Ended)).
+
+an_archived_game_stops_the_clock() ->
+    %% An archived game is dead: no deadline, no catch-up, and no instance to
+    %% route another event to.
+    Started = handled(started_event(1000, #{white => 60000, black => 60000})),
+    Archived = handled(#{event_type => <<"game_archived_v1">>,
+                         data => #{game_id => ?GAME, reason => <<"withdrawn">>,
+                                   status => 17, at_ms => 2000}}, Started),
+    ?assertEqual(undefined, maps:get(timer, Archived)),
+    ?assertEqual(undefined, maps:get(deadline_ms, Archived)),
+    ?assertEqual({stop, ?GAME},
+                 game_clock_pm:correlate(#{event_type => <<"game_archived_v1">>,
+                                           data => #{game_id => ?GAME}}, #{})).
 
 %%====================================================================
 %% Helpers
