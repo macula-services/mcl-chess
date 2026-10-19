@@ -14,7 +14,7 @@
 %%% `e8g8', `e8c8') or the Chess960 way (`e1h1', `e1a1'); both are accepted.
 -module(mcl_chess_rules).
 
--export([validate_move/2, apply_move/2, status/2, position_hash/1]).
+-export([validate_move/2, apply_move/2, status/2, position_hash/1, cannot_mate/2]).
 
 -on_load(init/0).
 
@@ -68,6 +68,23 @@ position_hash(_Fen) ->
           active | checkmate | stalemate | insufficient_material
               | seventy_five_moves | {error, invalid_fen}.
 status(_Fen, _HalfmoveClock) ->
+    ?NOT_LOADED.
+
+%% @doc FIDE 6.9, asked of one colour: can it mate at all in this position?
+%%
+%% 1 when it cannot checkmate the other king by any possible series of legal
+%% moves, 0 when it can. A flag asks this about the side that would otherwise be
+%% credited with the win, because a game is drawn when that side cannot mate:
+%% `status/2''s `insufficient_material' is the wrong question there, since it
+%% asks whether neither side can mate.
+%%
+%% "Any possible series" includes the flagged player's own moves, so a lone
+%% minor piece can mate a king whose side still has a piece to block a flight
+%% square. The material test is the usual one: no pawn, rook or queen, and at
+%% most one minor piece, against an opponent with nothing at all.
+-spec cannot_mate(binary(), binary()) ->
+          1 | 0 | {error, invalid_fen | invalid_move}.
+cannot_mate(_Fen, _Colour) ->
     ?NOT_LOADED.
 
 init() ->

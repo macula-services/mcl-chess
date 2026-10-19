@@ -13,7 +13,7 @@
 
 -behaviour(gen_server).
 
--export([start_link/1, exec/2, q/2, schema/0]).
+-export([start_link/1, exec/2, q/2, schema/0, migrations/0]).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2]).
 
 -record(state, {

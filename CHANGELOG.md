@@ -5,6 +5,52 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] - 2026-10-20
+
+### Added
+
+- **FIDE 6.9 on the flag path (mcl-chess#6):** `mcl_chess_rules:cannot_mate/2`
+  answers the one-sided question a flag has to ask, "can this side mate at all
+  in this position", which `status/2`'s `insufficient_material` cannot (that one
+  asks whether neither side can mate). A flag against a side that cannot mate is
+  recorded as `draw` with reason `clock_flag_insufficient_material` instead of a
+  forfeit, and the flagged player's own material does not count towards the
+  opponent's ability to mate. "Any possible series of legal moves" includes the
+  defender's own, so a lone minor piece can mate a king whose side still has a
+  unit to block a flight square: that flag stands as a loss.
+- **The facts contract, pinned (WP7):** every one of the nine facts now has its
+  topic and its key set pinned, and a table gives the CBOR type of every key.
+  `mcl_chess_facts_tests` compares each fact's wire shape against that table, so
+  a key that is added, renamed or quietly changed from text to an atom reaches
+  the suite instead of a subscriber in another language.
+- **The read-model schema contract (mcl-chess#5):** `game_schema_contract_tests`
+  parses the DDL out of `game_read_model_store:schema/0`, compares it with the
+  file, with the columns `get_game_by_id` selects and destructures (one row whose
+  every cell is different, read back through the desk), with the migrations, and
+  with what every projection writes (each one run against the real store). Three
+  modules promised this suite and none existed.
+- **`scripts/fault-in-place.sh`**, the proof harness for #7: it replaces the
+  rules NIF while a live VM has it mapped, in either mode, and counts the VMs
+  that die.
+
+### Changed
+
+- `game_read_model_store:migrations/0` is exported, so the contract test can
+  hold the migrations to the DDL.
+
+### Fixed
+
+- **The shutdown SIGSEGV (mcl-chess#7).** `scripts/build-nif.sh` installed the
+  rules NIF with `cp src dst`, which truncates and rewrites the inode a running
+  VM has mmap'd: the kernel serves unrelocated file content to an already
+  relocated shared object, the loader's `fini_array[0]` reads as zero, and the
+  VM dies inside `_dl_fini` at shutdown (or with SIGBUS part way through a copy).
+  It fires whenever one checkout's pre_hook rewrites the library under another
+  process in that checkout, which is what a second `rebar3` command does. The
+  install now writes a temporary file and renames it, so a running VM keeps the
+  inode it mapped and the next load gets the new one. Proven both ways:
+  `fault-in-place.sh overwrite` crashes 5 of 5 VMs, `atomic` 0 of 5.
+
 ## [0.5.0] - 2026-10-20
 
 ### Added

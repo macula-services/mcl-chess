@@ -11,6 +11,12 @@
 topic_test_() ->
     [?_assertEqual(<<"io.macula/mcl-chess/chess/game/game_initiated_v1">>,
                    mcl_chess_facts:topic(mcl_chess_facts:realm_name(), game_initiated)),
+     ?_assertEqual(<<"io.macula/mcl-chess/chess/game/seat_claimed_v1">>,
+                   mcl_chess_facts:topic(mcl_chess_facts:realm_name(), seat_claimed)),
+     ?_assertEqual(<<"io.macula/mcl-chess/chess/game/seat_refused_v1">>,
+                   mcl_chess_facts:topic(mcl_chess_facts:realm_name(), seat_refused)),
+     ?_assertEqual(<<"io.macula/mcl-chess/chess/game/game_started_v1">>,
+                   mcl_chess_facts:topic(mcl_chess_facts:realm_name(), game_started)),
      ?_assertEqual(<<"io.macula/mcl-chess/chess/game/game_archived_v1">>,
                    mcl_chess_facts:topic(mcl_chess_facts:realm_name(), game_archived)),
      ?_assertEqual(<<"io.macula/mcl-chess/chess/game/move_played_v1">>,
@@ -31,6 +37,9 @@ topic_test_() ->
 keys_test_() ->
     Initiated = mcl_chess_facts:game_initiated(initiated_event()),
     Archived = mcl_chess_facts:game_archived(archived_event()),
+    Claimed = mcl_chess_facts:seat_claimed(claimed_event()),
+    ClaimRefused = mcl_chess_facts:seat_refused(claim_refused_event()),
+    Started = mcl_chess_facts:game_started(started_event()),
     Played = mcl_chess_facts:move_played(played_event()),
     Refused = mcl_chess_facts:move_refused(refused_event()),
     Flagged = mcl_chess_facts:clock_flagged(flagged_event()),
@@ -40,6 +49,16 @@ keys_test_() ->
                    lists:sort(maps:keys(Initiated))),
      ?_assertEqual([at_ms, game_id, reason, status],
                    lists:sort(maps:keys(Archived))),
+     %% A claim names the node that took the seat and the seats after it, so a
+     %% spectator can follow who is playing without asking the service.
+     ?_assertEqual([at_ms, color, game_id, player_node_id, seats, status],
+                   lists:sort(maps:keys(Claimed))),
+     ?_assertEqual([at_ms, color, game_id, player_node_id, reason, seats,
+                    status],
+                   lists:sort(maps:keys(ClaimRefused))),
+     ?_assertEqual([at_ms, black_node_id, clocks, game_id, ply, position,
+                    position_hash, status, to_move, white_node_id],
+                   lists:sort(maps:keys(Started))),
      %% A move is published with the counts the referee judged on, so a
      %% consumer that re-derives a verdict and one that reads the record agree.
      ?_assertEqual([at_ms, clocks, fen_after, game_id, halfmove_clock, move,
@@ -56,6 +75,85 @@ keys_test_() ->
      ?_assertEqual([at_ms, clocks, fen_after, game_id, outcome, ply, reason,
                     status, winner_node_id],
                    lists:sort(maps:keys(Ended)))].
+
+%% Every fact's wire shape, key by key: the CBOR type each key carries. The key
+%% lists above say which keys exist; this says what a consumer will actually
+%% receive, which is what a subscriber in another language is written against.
+%%
+%% A new key, a renamed key, or a key that quietly changes from text to an atom
+%% reaches a consumer as a surprise. Here it reaches a red test first.
+shape_test_() ->
+    [?_assertEqual(declared(Fact), actual(Fact)) || Fact <- facts()].
+
+%% Kept in one place so the table below and the fixtures cannot drift apart.
+facts() ->
+    [{game_initiated, fun() -> mcl_chess_facts:game_initiated(initiated_event()) end},
+     {seat_claimed, fun() -> mcl_chess_facts:seat_claimed(claimed_event()) end},
+     {seat_refused, fun() -> mcl_chess_facts:seat_refused(claim_refused_event()) end},
+     {game_started, fun() -> mcl_chess_facts:game_started(started_event()) end},
+     {move_played, fun() -> mcl_chess_facts:move_played(played_event()) end},
+     {move_refused, fun() -> mcl_chess_facts:move_refused(refused_event()) end},
+     {clock_flagged, fun() -> mcl_chess_facts:clock_flagged(flagged_event()) end},
+     {game_ended, fun() -> mcl_chess_facts:game_ended(ended_event()) end},
+     {game_archived, fun() -> mcl_chess_facts:game_archived(archived_event()) end}].
+
+actual({_Fact, Build}) ->
+    wire_shape(mcl_chess_facts:to_wire(Build())).
+
+declared({Fact, _Build}) ->
+    maps:get(Fact, declared_shapes()).
+
+%% The contract. Text is CBOR text, numbers are numbers, flags are 1/0 (and so
+%% are integers on the wire), and the two maps say what every value in them is.
+declared_shapes() ->
+    #{game_initiated =>
+          #{game_id => text, protocol => text,
+            time_control => {map, [integer]}, seats => {map, [text]},
+            position => text, to_move => text, ply => integer,
+            clocks => {map, [integer]}, status => integer,
+            initiator_node_id => text, at_ms => integer},
+      seat_claimed =>
+          #{game_id => text, player_node_id => text, color => text,
+            seats => {map, [text]}, status => integer, at_ms => integer},
+      seat_refused =>
+          #{game_id => text, player_node_id => text, color => text,
+            seats => {map, [text]}, status => integer, at_ms => integer,
+            reason => text},
+      game_started =>
+          #{game_id => text, white_node_id => text, black_node_id => text,
+            position => text, position_hash => integer, to_move => text,
+            ply => integer, clocks => {map, [integer]}, status => integer,
+            at_ms => integer},
+      move_played =>
+          #{game_id => text, player_node_id => text, move => text,
+            ply => integer, fen_after => text, position_hash => integer,
+            halfmove_clock => integer, repetitions => integer, to_move => text,
+            clocks => {map, [integer]}, status => integer, at_ms => integer},
+      move_refused =>
+          #{game_id => text, player_node_id => text, move => text,
+            ply => integer, fen_after => text, clocks => {map, [integer]},
+            status => integer, at_ms => integer, reason => text},
+      clock_flagged =>
+          #{game_id => text, player_node_id => text,
+            clocks => {map, [integer]}, status => integer, at_ms => integer},
+      game_ended =>
+          #{game_id => text, winner_node_id => text, fen_after => text,
+            ply => integer, clocks => {map, [integer]}, status => integer,
+            at_ms => integer, outcome => text, reason => text},
+      game_archived =>
+          #{game_id => text, reason => text, status => integer,
+            at_ms => integer}}.
+
+wire_shape(Fact) ->
+    maps:map(fun(_Key, Value) -> wire_type(Value) end, Fact).
+
+wire_type({text, _}) -> text;
+wire_type(Value) when is_integer(Value) -> integer;
+wire_type(Value) when is_list(Value) -> list;
+wire_type(Value) when is_map(Value) -> {map, sorted_types(maps:values(Value))}.
+
+sorted_types([]) -> [];   %% an empty map promises nothing about its values
+sorted_types(Values) -> lists:usort([wire_type(Value) || Value <- Values]).
 
 %% The reasons travel as text, the spelling the caller was answered with, and
 %% the outcome does too: a subscriber switches on a string, never an Erlang atom
@@ -107,6 +205,35 @@ initiated_event() ->
       clocks => #{white => 60000, black => 60000},
       status => 3,
       initiator_node_id => <<"a1b2">>,
+      at_ms => 1792435657965}.
+
+claimed_event() ->
+    #{game_id => <<"game-0123456789abcdef0123456789abcdef">>,
+      player_node_id => <<"b2c3">>,
+      color => <<"b">>,
+      seats => #{white => <<"a1b2">>, black => <<"b2c3">>},
+      status => 5,
+      at_ms => 1792435657965}.
+
+claim_refused_event() ->
+    #{game_id => <<"game-0123456789abcdef0123456789abcdef">>,
+      player_node_id => <<"c3d4">>,
+      color => <<"w">>,
+      reason => seat_taken,
+      seats => #{white => <<"a1b2">>, black => <<"b2c3">>},
+      status => 5,
+      at_ms => 1792435657965}.
+
+started_event() ->
+    #{game_id => <<"game-0123456789abcdef0123456789abcdef">>,
+      white_node_id => <<"a1b2">>,
+      black_node_id => <<"b2c3">>,
+      position => <<"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1">>,
+      position_hash => 123456789,
+      to_move => <<"w">>,
+      ply => 0,
+      clocks => #{white => 60000, black => 60000},
+      status => 5,
       at_ms => 1792435657965}.
 
 played_event() ->

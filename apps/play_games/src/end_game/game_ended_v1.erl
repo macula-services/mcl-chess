@@ -7,8 +7,9 @@
 %%
 %% Outcome vocabulary (closed set): `winner' (reason `checkmate'), `draw'
 %% (`stalemate', `insufficient_material', `seventy_five_moves',
-%% `fivefold_repetition'), `forfeit' (`clock_flag', `resignation'), `abandoned'
-%% (`withdrawn'). A withdraw before the game started is not an end: it archives.
+%% `fivefold_repetition', `clock_flag_insufficient_material'),
+%% `forfeit' (`clock_flag', `resignation'), `abandoned' (`withdrawn'). A withdraw
+%% before the game started is not an end: it archives.
 -module(game_ended_v1).
 
 -behaviour(evoq_event).

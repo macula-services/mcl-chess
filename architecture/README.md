@@ -111,6 +111,7 @@ A move is judged by the rules engine, and `on_move_played_v1_maybe_end_game` act
 | The same position five times | `draw` | `fivefold_repetition` | the aggregate, counting the hashes its events recorded |
 | A player resigns | `forfeit` | `resignation` | the resign desk |
 | A clock runs out | `forfeit` | `clock_flag` | the clock instance, unless the position above already decided it |
+| A clock runs out and the opponent cannot mate | `draw` | `clock_flag_insufficient_material` | the rules engine, asked FIDE 6.9's one-sided question |
 
 The order is FIDE's: checkmate wins over the counter, a position that is dead on its own terms reports its own reason, and the counter is asked last. The 50 move and threefold draws are **claims**, and claims are v2.
 
@@ -120,7 +121,11 @@ The order is FIDE's: checkmate wins over the counter, a position that is dead on
 
 **The mover's clock is charged by the move desk.** The turn began at the state's own `at_ms` (the last event that changed the game), so the time is derived from the record and not from a wall clock, and the increment is paid on top when a move completed. A player whose time ran out is recorded at zero and pays no increment. The move desk refuses a move on an overdrawn clock (`time_expired`, recorded like any other foul by a seat holder) with the same arithmetic the flag uses, so the two cannot disagree about whether the time was there.
 
-**A flag re-judges the position before it forfeits.** `clock_flagged_v1` records the fact, `on_clock_flagged_v1_maybe_end_game` dispatches `end_game_v1`, and that desk asks `game_verdict` about the position first. A live position is a forfeit and the flagged player's opponent wins it; a position the rules had already decided keeps its own verdict, which is how a game left mated by a crash ends `checkmate` rather than `clock_flag`. A resignation and every other end keep the decision they were sent with. The end's reason therefore says what actually happened, and a future reputation division reading the transcript sees the truth rather than the last event.
+**A flag re-judges the position before it forfeits.** `clock_flagged_v1` records the fact, `on_clock_flagged_v1_maybe_end_game` dispatches `end_game_v1`, and that desk asks `game_verdict` about the position first. A live position is a forfeit and the flagged player's opponent wins it; a position the rules had already decided keeps its own verdict, which is how a game left mated by a crash ends `checkmate` rather than `clock_flag`. A resignation and every other end keep the decision they were sent with. **A live position is not automatically a loss.** FIDE 6.9 draws the game when the side that would be credited with the win cannot checkmate the flagged player's king by any possible series of legal moves, so the flag path asks the rules engine one more question about the opponent's material, and a flag against a bare king ends `draw` with reason `clock_flag_insufficient_material`. The end's reason therefore says what actually happened, and a future reputation division reading the transcript sees the truth rather than the last event.
+
+## The facts on the mesh, and their contract (WP7)
+
+Nine facts leave this service, one topic each under `<realm>/mcl-chess/chess/game/`, with the game id in the payload and never in the topic name, so a consumer subscribes once and filters. `mcl_chess_facts` is the only module where the internal event and the published fact meet, and `mcl_chess_facts_tests` is what makes a wire change visible before a consumer finds it: every topic is pinned, every fact's key set is pinned, and a table gives the CBOR type of every key (text, integer, or a map and the types of its values). A key that is added, renamed, or quietly turned from text into an atom fails that table rather than a subscriber written in another language. Flags travel as 1/0, reasons and outcomes as text, and both shapes of an event (atom-keyed from a desk, binary-keyed from the store) produce the same fact.
 
 ## The read model's shape, and how it changes
 
@@ -128,16 +133,20 @@ The move list is a table of its own, `moves(game_id, ply, uci)` with a primary k
 
 A read model file outlives a release, and `CREATE TABLE IF NOT EXISTS` does nothing to a table that already exists, so a column added to the DDL is also declared in `game_read_model_store:migrations/0`, which `ALTER TABLE`s it only when `PRAGMA table_info` does not already list it. That is the only way this schema changes.
 
+**The schema is held by a contract test, not by good intentions.** `game_schema_contract_tests` parses the columns out of the DDL itself (no second copy of the schema is written down), and then uses the real store to prove three things: the parsed DDL is what the file has, the columns `get_game_by_id` selects exist and arrive in the order its destructuring expects, and every projection's SQL names only declared columns. Each of the three is red if it drifts, which was checked by breaking each one and watching it fail.
+
 ## The rules engine, built in WP4
 
-`native/mcl_chess_rules/` is a Rustler cdylib over [cozy-chess](https://crates.io/crates/cozy-chess) 0.3.4 (MIT; the licensing decision is in the design of record). Three functions, no state, no dirty scheduler: a call is one FEN parse and one move-generation pass.
+`native/mcl_chess_rules/` is a Rustler cdylib over [cozy-chess](https://crates.io/crates/cozy-chess) 0.3.4 (MIT; the licensing decision is in the design of record). Four functions, no state, no dirty scheduler: a call is one FEN parse and one move-generation pass.
 
 | Layer | Where | What |
 | --- | --- | --- |
-| Pure rules | `native/mcl_chess_rules/src/rules.rs` | `validate_move/2`, `apply_move/2`, `position_hash/1` and `status/2` over FEN and UCI strings. No BEAM types, so the perft suite runs as an ordinary `cargo test` |
-| NIF translation | `native/mcl_chess_rules/src/nif.rs` | The three `#[rustler::nif]` functions, compiled out under `cfg(test)`: the `enif_*` calls they make do not exist in a test binary |
+| Pure rules | `native/mcl_chess_rules/src/rules.rs` | `validate_move/2`, `apply_move/2`, `position_hash/1`, `status/2` and `cannot_mate/2` over FEN and UCI strings. No BEAM types, so the perft suite runs as an ordinary `cargo test` |
+| NIF translation | `native/mcl_chess_rules/src/nif.rs` | The four `#[rustler::nif]` functions, compiled out under `cfg(test)`: the `enif_*` calls they make do not exist in a test binary |
 | BEAM module | `apps/play_games/src/mcl_chess_rules.erl` | Loads the `.so` from `play_games`' own `priv/lib` and is the module a desk calls |
 | Build | `scripts/build-nif.sh`, run by the umbrella's `compile` pre_hook | `cargo build --release --locked`, then the `.so` into `apps/play_games/priv/lib`, which relx copies into the release |
+
+**The library is installed with a new inode, never in place** (mcl-chess#7). A VM that has loaded it has the file mmap'd, and `cp src dst` would truncate and rewrite the very inode that mapping is backed by: the loader then reads unrelocated content out of an already relocated object, `fini_array[0]` comes back as zero, and the VM dies inside `_dl_fini` at shutdown. The script copies to a temporary name and renames it, so a running VM keeps the inode it mapped and the next load gets the new file. `scripts/fault-in-place.sh` is the proof harness: the in-place mode crashes every VM it is run against, the atomic mode none.
 
 **Correctness is perft, not opinion.** The suite walks the published node counts for the six standard perft positions (start, Kiwipete, positions 3 to 6) to depths 3 to 5, and walks the same trees a second time through `apply_move` so the referee's own path, including the FEN round trip, is measured and not just the library under it. `scripts/test-nif.sh` runs it in release, which is the profile the deep depths are compiled for.
 
@@ -145,7 +154,7 @@ A read model file outlives a release, and `CREATE TABLE IF NOT EXISTS` does noth
 
 - **Castling is spelled twice.** The wire says `e1g1`; cozy-chess, like every Chess960-aware engine, says `e1h1` (the king takes its own rook). Both spellings are accepted and both arrive at the same position, and a king move to `g1` that is not a castle is simply illegal, so there is no ambiguity to preserve.
 - **The recorded hash is the FIDE one.** `apply_move/2` returns a Zobrist hash in which a dead en passant square does not count: two positions a repetition check must call identical hash identically. `hash()` and `hash_without_ep()` alone are each wrong here, so the hash is `hash()` only when the en passant capture is actually legal.
-- **The verdicts are the v1 end conditions**: `active`, `checkmate`, `stalemate`, `insufficient_material`, `seventy_five_moves`. Insufficient material is bare kings, a lone minor piece, or a bishop each on the same colour of square; `seventy_five_moves` is the 150th halfmove, asked last, after mate, stalemate and dead material have had their say.
+- **The verdicts are the v1 end conditions**: `active`, `checkmate`, `stalemate`, `insufficient_material`, `seventy_five_moves`. `cannot_mate/2` sits beside them and answers a different question: not whether the position is dead for both sides, but whether one named colour can mate at all, which is what a flag has to know (FIDE 6.9). Insufficient material is bare kings, a lone minor piece, or a bishop each on the same colour of square; `seventy_five_moves` is the 150th halfmove, asked last, after mate, stalemate and dead material have had their say.
 - **`apply_move/2` reports the halfmove reset** (a pawn move or a capture), because the counter it would otherwise read back is clamped at 100 and the rule fires at 150. `position_hash/1` hashes a position without playing a move into it, which is how a game's start position enters the repetition history.
 
 **What it does not decide.** The fivefold draw, which is not a function of one position (the aggregate counts it), and the 50 move and threefold draws, which are claims and are v2. [#4](https://github.com/macula-services/mcl-chess/issues/4) settled which automatic draws v1 takes: the closing comment there is the record.

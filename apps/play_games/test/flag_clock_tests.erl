@@ -24,12 +24,19 @@
 -define(START, <<"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1">>).
 %% Fool's mate: black has mated, and it is white (the mated side) to move.
 -define(FOOLS_MATE, <<"rnb1kbnr/pppp1ppp/8/4p3/6Pq/5P2/PPPPP2P/RNBQKBNR w KQkq - 1 3">>).
+%% White to move, holding a queen; black has a bare king and cannot mate (FIDE 6.9).
+-define(QUEEN_AGAINST_A_BARE_KING, <<"7k/8/8/8/8/8/6Q1/6K1 w - - 0 1">>).
+%% White to move, a pawn against black's lone knight: black can mate with white's
+%% own pawn blocking a flight square, so a flag here is a loss.
+-define(KNIGHT_AGAINST_A_PAWN, <<"4kn2/8/8/8/8/8/4P3/4K3 w - - 0 1">>).
 
 desk_test_() ->
     [{timeout, 30, fun a_flag_records_who_ran_out/0},
      {timeout, 30, fun the_flag_is_one_event_and_the_end_is_another/0},
      {timeout, 30, fun a_flag_ends_a_live_game_as_a_forfeit/0},
      {timeout, 30, fun a_flag_on_a_mated_game_ends_as_a_checkmate/0},
+     {timeout, 30, fun a_flag_against_an_opponent_who_cannot_mate_is_a_draw/0},
+     {timeout, 30, fun a_lone_minor_piece_still_wins_when_it_has_a_blocker/0},
      {timeout, 30, fun only_a_flag_is_re_judged/0},
      {timeout, 30, fun a_flag_refuses_a_clock_that_has_not_run_out/0},
      {timeout, 30, fun a_flag_refuses_the_wrong_turn/0},
@@ -84,6 +91,31 @@ a_flag_on_a_mated_game_ends_as_a_checkmate() ->
     {ok, [Ended]} = end_flag(State),
     ?assertEqual(winner, maps:get(outcome, Ended)),
     ?assertEqual(checkmate, maps:get(reason, Ended)),
+    ?assertEqual(?BOB, maps:get(winner_node_id, Ended)).
+
+%% FIDE 6.9 (mcl-chess#6): a flag is only a loss when the side that would be
+%% credited with the win can mate at all. White's clock ran out holding a queen
+%% and black has a bare king, so black cannot checkmate by any series of legal
+%% moves and the game is drawn. The queen belongs to the side that ran out and
+%% does not help it.
+a_flag_against_an_opponent_who_cannot_mate_is_a_draw() ->
+    State = flagged(started_in(?QUEEN_AGAINST_A_BARE_KING, now_ms() - 2000)),
+    {ok, [Ended]} = end_flag(State),
+    ?assertEqual(<<"game_ended_v1">>, maps:get(event_type, Ended)),
+    ?assertEqual(draw, maps:get(outcome, Ended)),
+    ?assertEqual(clock_flag_insufficient_material, maps:get(reason, Ended)),
+    ?assertEqual(<<>>, maps:get(winner_node_id, Ended)),
+    %% An end is an end whatever the outcome: STARTED cleared, ENDED set.
+    ?assertEqual(9, maps:get(status, Ended)).
+
+%% The other half of 6.9: "any possible series of legal moves" counts the flagged
+%% player's own moves, so black's lone knight can mate once white's pawn is there
+%% to block a flight square. That flag stands as a loss.
+a_lone_minor_piece_still_wins_when_it_has_a_blocker() ->
+    State = flagged(started_in(?KNIGHT_AGAINST_A_PAWN, now_ms() - 2000)),
+    {ok, [Ended]} = end_flag(State),
+    ?assertEqual(forfeit, maps:get(outcome, Ended)),
+    ?assertEqual(clock_flag, maps:get(reason, Ended)),
     ?assertEqual(?BOB, maps:get(winner_node_id, Ended)).
 
 only_a_flag_is_re_judged() ->
@@ -164,13 +196,18 @@ seated(StartedAt) ->
 
 %% The same game, in a position black has mated: white to move, and lost.
 mated(StartedAt) ->
+    started_in(?FOOLS_MATE, StartedAt).
+
+%% A started game standing in `Fen', white to move, the turn begun at
+%% `StartedAt' so a 1 s clock has already run out.
+started_in(Fen, StartedAt) ->
     State = started(StartedAt, #{white => 1000, black => 1000}),
     game_state:apply_event(State, #{event_type => <<"move_played_v1">>,
                                     game_id => ?GAME,
                                     player_node_id => ?BOB,
                                     move => <<"d8h4">>,
                                     ply => 3,
-                                    fen_after => ?FOOLS_MATE,
+                                    fen_after => Fen,
                                     position_hash => 4242,
                                     halfmove_clock => 1,
                                     repetitions => 1,

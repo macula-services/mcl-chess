@@ -11,7 +11,7 @@
 //! (`e1h1`), so [`resolve`] translates the two standard spellings before it
 //! asks whether the move is legal. Both spellings are accepted.
 
-use cozy_chess::{Board, File, Move, Piece, Rank, Square};
+use cozy_chess::{Board, Color, File, Move, Piece, Rank, Square};
 use std::str::FromStr;
 
 /// Why the rules refused a move, or could not read the position.
@@ -307,6 +307,71 @@ fn is_insufficient_material(position: &Board) -> bool {
 
 fn count(squares: cozy_chess::BitBoard) -> usize {
     squares.into_iter().count()
+}
+
+/// FIDE Laws of Chess, article 6.9: when a player's flag falls, the game is
+/// drawn if the opponent cannot checkmate that player's king by any possible
+/// series of legal moves.
+///
+/// This is the one-sided question [`is_insufficient_material`] cannot answer.
+/// That function asks whether NEITHER side can mate, which is the right question
+/// while a game is being played; a flag only cares about the side that would
+/// otherwise be credited with the win.
+///
+/// "Any possible series of legal moves" includes the flagged player's own moves,
+/// so a piece of theirs can block a flight square and turn an otherwise
+/// impossible mate into a possible one. The material test is therefore:
+///
+/// * a pawn, rook or queen of `color`: it can mate, always;
+/// * a bare king: it cannot, ever;
+/// * exactly one minor piece: it can mate only when the other side still has a
+///   piece or a pawn of its own to block with;
+/// * two or more minor pieces: treated as able to mate. Two knights against a
+///   bare king is the one position this over-credits, and no mate exists there;
+///   it errs towards recording a win, which is the safe direction for a referee
+///   whose record is what a dispute is settled from. The exact dead-position
+///   definition is wider and is a v2 concern.
+pub fn cannot_mate(fen: &str, color: &str) -> Result<bool, MoveError> {
+    let position = board(fen)?;
+    let side = colour(color).ok_or(MoveError::InvalidMove)?;
+    Ok(no_mating_material(&position, side))
+}
+
+/// The wire's colour text, in the same spelling the aggregate's `to_move` uses.
+fn colour(name: &str) -> Option<Color> {
+    match name {
+        "w" | "white" => Some(Color::White),
+        "b" | "black" => Some(Color::Black),
+        _ => None,
+    }
+}
+
+fn no_mating_material(position: &Board, color: Color) -> bool {
+    let has = |piece: Piece| !position.colored_pieces(color, piece).is_empty();
+    if has(Piece::Pawn) || has(Piece::Rook) || has(Piece::Queen) {
+        return false;
+    }
+    let minors = count(position.colored_pieces(color, Piece::Knight))
+        + count(position.colored_pieces(color, Piece::Bishop));
+    match minors {
+        0 => true,
+        1 => !any_material(position, !color),
+        _ => false,
+    }
+}
+
+/// Whether `color` still has any pawn or piece on the board: what a lone minor
+/// piece needs in order to have a square to mate against.
+fn any_material(position: &Board, color: Color) -> bool {
+    [
+        Piece::Pawn,
+        Piece::Knight,
+        Piece::Bishop,
+        Piece::Rook,
+        Piece::Queen,
+    ]
+    .iter()
+    .any(|&piece| !position.colored_pieces(color, piece).is_empty())
 }
 
 fn bishops_share_a_colour(position: &Board) -> bool {

@@ -15,7 +15,7 @@
 //! position. The aggregate counts it over the hashes the events recorded.
 
 use crate::rules::{self, MoveError, Verdict};
-use crate::rules::{apply_move, position_hash, status};
+use crate::rules::{apply_move, cannot_mate, position_hash, status};
 use cozy_chess::Board;
 use std::str::FromStr;
 
@@ -107,4 +107,72 @@ fn a_position_can_be_hashed_without_a_move() {
         rules::position_hash_of("nonsense"),
         Err(MoveError::InvalidFen)
     );
+}
+
+// FIDE 6.9 (mcl-chess#6, WP7): the one-sided question a flag asks. It is not
+// `is_insufficient_material`, which asks whether NEITHER side can mate; a flag
+// only cares about the side that would otherwise be credited with the win.
+
+/// A pawn, a rook or a queen always mates eventually, so the answer is no.
+#[test]
+fn a_side_with_mating_material_can_mate() {
+    assert!(!cannot_mate(START, "w").unwrap());
+    assert!(!cannot_mate(START, "b").unwrap());
+    let pawn = "4k3/8/8/8/8/8/4P3/4K3 w - - 0 1";
+    assert!(
+        !cannot_mate(pawn, "w").unwrap(),
+        "a pawn can become a queen"
+    );
+}
+
+/// A bare king has no mating move at all.
+#[test]
+fn a_bare_king_cannot_mate() {
+    let bare = "4k3/8/8/8/8/8/8/4K3 w - - 0 1";
+    assert!(cannot_mate(bare, "w").unwrap());
+    assert!(cannot_mate(bare, "b").unwrap());
+}
+
+/// One minor piece cannot mate a bare king, because nothing on the board can
+/// block a flight square. Give the defender a piece and the same material can
+/// mate with help, which FIDE 6.9 counts: "any possible series of legal moves".
+#[test]
+fn one_minor_piece_needs_something_to_block_with() {
+    let knight = "4k3/8/8/8/8/8/8/4KN2 w - - 0 1";
+    assert!(cannot_mate(knight, "w").unwrap());
+    let knight_vs_pawn = "4k3/4p3/8/8/8/8/8/4KN2 w - - 0 1";
+    assert!(!cannot_mate(knight_vs_pawn, "w").unwrap());
+    let bishop_vs_bishop = "2b1k3/8/8/8/8/8/8/4KB2 w - - 0 1";
+    assert!(!cannot_mate(bishop_vs_bishop, "w").unwrap());
+}
+
+/// The issue's own example: the flagged side holds a queen, the opponent a bare
+/// king. Under FIDE 6.9 the bare king cannot mate, so the game is drawn; the
+/// queen, which belongs to the side that ran out, does not help it.
+#[test]
+fn the_flagged_sides_material_is_not_the_opponents() {
+    let queen = "7k/8/8/8/8/8/6Q1/6K1 w - - 0 1";
+    assert!(cannot_mate(queen, "b").unwrap(), "black has a bare king");
+    assert!(!cannot_mate(queen, "w").unwrap(), "white has a queen");
+}
+
+/// Two minor pieces are treated as able to mate. Two knights against a bare
+/// king is the one position that over-credits: no mate exists there, and the
+/// referee errs towards recording a win rather than silently drawing a game
+/// nobody claimed was drawn.
+#[test]
+fn two_minor_pieces_are_able_to_mate() {
+    let two_knights = "4k3/8/8/8/8/8/8/1N2KN2 w - - 0 1";
+    assert!(!cannot_mate(two_knights, "w").unwrap());
+    let knight_and_bishop = "4k3/8/8/8/8/8/8/1N2KB2 w - - 0 1";
+    assert!(!cannot_mate(knight_and_bishop, "w").unwrap());
+}
+
+/// Anything it cannot read is refused in the referee's own vocabulary, never
+/// guessed at: a caller that mistyped a colour must not be told a dead position.
+#[test]
+fn cannot_mate_refuses_what_it_cannot_read() {
+    assert_eq!(cannot_mate("nonsense", "w"), Err(MoveError::InvalidFen));
+    assert_eq!(cannot_mate(START, "x"), Err(MoveError::InvalidMove));
+    assert_eq!(cannot_mate(START, ""), Err(MoveError::InvalidMove));
 }

@@ -19,6 +19,13 @@
 %% says was flagged, which is how the opponent is named without a policy knowing
 %% the seats. A resignation and every other end keep the decision they were sent
 %% with: what happened first is what the record says.
+%%
+%% A LIVE POSITION IS NOT AUTOMATICALLY A LOSS (mcl-chess#6, WP7). FIDE 6.9: the
+%% game is drawn when the side that ran out cannot be mated by any possible
+%% series of legal moves. That is a question about the OTHER side's material,
+%% which the position's own verdict cannot answer, so the flag path asks the
+%% rules engine directly. A flag against a bare king is a draw, and the reason
+%% records which rule drew it.
 -module(maybe_end_game).
 
 -export([handle_from_map/2, handle/2, dispatch/1]).
@@ -80,7 +87,7 @@ flagged(true, State, _Cmd) ->
 judged({over, Decision}, _State) ->
     maps:merge(#{winner_node_id => <<>>}, Decision);
 judged(active, State) ->
-    forfeit(State);
+    mating(State, game_state:colour_of(State, opponent_of_flagged(State)));
 judged({error, invalid_fen}, State) ->
     %% The position is our own record, so this cannot come from a caller. The
     %% game still ends: the clock ran out either way. Logged, so a fault in the
@@ -89,11 +96,46 @@ judged({error, invalid_fen}, State) ->
                      reason => invalid_fen}),
     forfeit(State).
 
+%% FIDE 6.9 (mcl-chess#6): a flag is a loss only when the opponent can checkmate
+%% the flagged player's king by some possible series of legal moves. When it
+%% cannot, the game is drawn, and the record says so rather than crediting a win
+%% the rules never awarded.
+mating(State, Colour) when Colour =:= white; Colour =:= black ->
+    cannot_mate(State, mcl_chess_rules:cannot_mate(
+                            game_state:position(State),
+                            game_state:colour_wire(Colour)));
+mating(State, _NoColour) ->
+    %% The flagged node is not one the seats hold. The flag desk refuses a
+    %% stranger before this, so the state and the record disagree; the clock ran
+    %% out either way, and a forfeit is the answer that ends the game.
+    logger:warning(#{what => flag_with_no_opponent_colour,
+                     game_id => game_state:game_id(State)}),
+    forfeit(State).
+
+cannot_mate(State, 1) ->
+    drawn_on_time(State);
+cannot_mate(State, 0) ->
+    forfeit(State);
+cannot_mate(State, {error, Reason}) ->
+    %% The position parsed for the verdict above, so the engine refusing it here
+    %% is a fault, not a caller's mistake. A forfeit ends the game; the warning
+    %% is what keeps the fault visible.
+    logger:warning(#{what => flag_mate_question_failed,
+                     game_id => game_state:game_id(State), reason => Reason}),
+    forfeit(State).
+
 %% The flagged player lost on time, so the other seat won it.
 forfeit(State) ->
     #{outcome => forfeit,
       winner_node_id => opponent_of_flagged(State),
       reason => clock_flag}.
+
+%% The clock ran out against a player who could not possibly have mated: drawn,
+%% and nobody is named as the winner.
+drawn_on_time(_State) ->
+    #{outcome => draw,
+      winner_node_id => <<>>,
+      reason => clock_flag_insufficient_material}.
 
 opponent_of_flagged(State) ->
     Colour = game_state:colour_of(State, game_state:flagged_node_id(State)),

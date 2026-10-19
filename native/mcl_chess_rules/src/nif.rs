@@ -1,9 +1,10 @@
 //! The NIF surface of `mcl_chess_rules`.
 //!
-//! Four functions, stateless, microsecond scale: validate a move, apply a
-//! move, hash a position, give a verdict. The logic lives in [`crate::rules`],
-//! which knows nothing about the BEAM and is tested on its own; this module is
-//! the thin translation between Rust values and Erlang terms.
+//! Five functions, stateless, microsecond scale: validate a move, apply a
+//! move, hash a position, give a verdict, and answer FIDE 6.9's one-sided
+//! question about mating material. The logic lives in [`crate::rules`], which
+//! knows nothing about the BEAM and is tested on its own; this module is the
+//! thin translation between Rust values and Erlang terms.
 //!
 //! There is no dirty scheduler here and no state: every call is bounded by one
 //! FEN parse and one move-generation pass, which is scheduler-safe at this
@@ -51,6 +52,13 @@ fn uci_str(uci: Binary<'_>) -> Result<&str, rules::MoveError> {
     std::str::from_utf8(uci.as_slice()).map_err(|_| rules::MoveError::InvalidMove)
 }
 
+/// A colour arrives as `<<"w">>` or `<<"b">>`, the same text the aggregate's
+/// `to_move` carries. Anything else is a caller that mistyped, not a position
+/// this engine cannot read, so it is refused the way a malformed move is.
+fn colour_str(colour: Binary<'_>) -> Result<&str, rules::MoveError> {
+    std::str::from_utf8(colour.as_slice()).map_err(|_| rules::MoveError::InvalidMove)
+}
+
 fn reason_atom(error: rules::MoveError) -> Atom {
     match error {
         rules::MoveError::InvalidFen => atoms::invalid_fen(),
@@ -69,11 +77,11 @@ fn verdict_atom(verdict: rules::Verdict) -> Atom {
     }
 }
 
-/// The halfmove-reset flag, as the 1/0 the rest of the division uses for flags
-/// rather than as an Erlang boolean: this travels no further than the desk, and
-/// one convention everywhere is one thing to remember.
-fn reset_flag(resets: bool) -> u32 {
-    if resets {
+/// The 1/0 the rest of the division uses for flags, rather than an Erlang
+/// boolean: the halfmove-reset bit and FIDE 6.9's answer are both flags, and one
+/// convention everywhere is one thing to remember.
+fn flag(value: bool) -> u32 {
+    if value {
         1
     } else {
         0
@@ -98,7 +106,7 @@ pub fn apply_move<'a>(env: Env<'a>, fen: Binary<'a>, uci: Binary<'a>) -> NifResu
     let result =
         fen_str(fen).and_then(|fen| uci_str(uci).and_then(|uci| rules::apply_move(fen, uci)));
     Ok(match result {
-        Ok((next, hash, resets)) => (atoms::ok(), next, hash, reset_flag(resets)).encode(env),
+        Ok((next, hash, resets)) => (atoms::ok(), next, hash, flag(resets)).encode(env),
         Err(error) => (atoms::error(), reason_atom(error)).encode(env),
     })
 }
@@ -128,4 +136,23 @@ pub fn status<'a>(env: Env<'a>, fen: Binary<'a>, halfmove_clock: u64) -> NifResu
             Err(error) => (atoms::error(), reason_atom(error)).encode(env),
         },
     )
+}
+
+/// `cannot_mate(Fen, Colour) -> 1 | 0 | {error, Reason}`
+///
+/// FIDE 6.9, asked of one colour: can it deliver checkmate by any possible
+/// series of legal moves? A flag asks it about the side that would otherwise be
+/// credited with the win, which is the one question `is_insufficient_material`
+/// (neither side can mate) cannot answer.
+///
+/// The answer is 1 for "cannot mate", so a caller that reads it as a flag never
+/// has to invert it.
+#[rustler::nif]
+pub fn cannot_mate<'a>(env: Env<'a>, fen: Binary<'a>, colour: Binary<'a>) -> NifResult<Term<'a>> {
+    let result = fen_str(fen)
+        .and_then(|fen| colour_str(colour).and_then(|colour| rules::cannot_mate(fen, colour)));
+    Ok(match result {
+        Ok(cannot) => flag(cannot).encode(env),
+        Err(error) => (atoms::error(), reason_atom(error)).encode(env),
+    })
 }

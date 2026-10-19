@@ -166,6 +166,42 @@ material_that_can_mate_is_still_active_test() ->
 status_refuses_a_non_position_test() ->
     ?assertEqual({error, invalid_fen}, mcl_chess_rules:status(<<"nonsense">>, 0)).
 
+%%% cannot_mate/2, FIDE 6.9 (mcl-chess#6). The one-sided question a flag asks:
+%%% can the side that would be credited with the win mate at all?
+
+cannot_mate_answers_the_flagged_sides_opponent_test() ->
+    %% The issue's example: the flagged side holds a queen, the opponent a bare
+    %% king. The bare king cannot mate, so the game is drawn.
+    Queen = <<"7k/8/8/8/8/8/6Q1/6K1 w - - 0 1">>,
+    ?assertEqual(1, mcl_chess_rules:cannot_mate(Queen, <<"b">>)),
+    ?assertEqual(0, mcl_chess_rules:cannot_mate(Queen, <<"w">>)).
+
+cannot_mate_is_not_insufficient_material_test() ->
+    %% Insufficient material asks whether NEITHER side can mate, and this
+    %% position is exactly that: bare kings. Asked of each colour, the answer is
+    %% the same, but a position where one side can mate and the other cannot is
+    %% where the two questions part company.
+    Bare = <<"4k3/8/8/8/8/8/8/4K3 w - - 0 1">>,
+    ?assertEqual(insufficient_material, mcl_chess_rules:status(Bare, 0)),
+    ?assertEqual(1, mcl_chess_rules:cannot_mate(Bare, <<"w">>)),
+    ?assertEqual(1, mcl_chess_rules:cannot_mate(Bare, <<"b">>)),
+    %% A pawn is enough to mate, so the side holding it never "cannot mate".
+    Pawn = <<"4k3/8/8/8/8/8/4P3/4K3 w - - 0 1">>,
+    ?assertEqual(0, mcl_chess_rules:cannot_mate(Pawn, <<"w">>)).
+
+cannot_mate_reads_a_lone_minor_piece_with_help_test() ->
+    %% A lone knight cannot mate a bare king, but it can mate one whose side
+    %% still has a piece to block a flight square: FIDE 6.9 counts every legal
+    %% series, including the defender's own moves.
+    Bare = <<"4k3/8/8/8/8/8/8/4KN2 w - - 0 1">>,
+    ?assertEqual(1, mcl_chess_rules:cannot_mate(Bare, <<"w">>)),
+    WithHelp = <<"4k3/4p3/8/8/8/8/8/4KN2 w - - 0 1">>,
+    ?assertEqual(0, mcl_chess_rules:cannot_mate(WithHelp, <<"w">>)).
+
+cannot_mate_refuses_what_it_cannot_read_test() ->
+    ?assertEqual({error, invalid_fen}, mcl_chess_rules:cannot_mate(<<"nonsense">>, <<"w">>)),
+    ?assertEqual({error, invalid_move}, mcl_chess_rules:cannot_mate(?START, <<"x">>)).
+
 %%% The clock is the referee's, not the FEN's. cozy-chess keeps the FEN's
 %%% counter as a byte clamped to 100, so a game where neither side captures nor
 %%% moves a pawn could never reach the 150 halfmoves the 75 move rule fires at.
