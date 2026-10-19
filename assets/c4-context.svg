@@ -1,0 +1,139 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 790" role="img" aria-label="mcl-chess system context">
+<title>mcl-chess system context</title>
+<style>
+.t-name { font-family: "Atkinson Hyperlegible", "Segoe UI", system-ui, -apple-system, Helvetica, Arial, sans-serif; font-size: 15px; font-weight: 700; }
+.t-desc { font-family: "Atkinson Hyperlegible", "Segoe UI", system-ui, -apple-system, Helvetica, Arial, sans-serif; font-size: 12.5px; }
+.t-rel { font-family: "Atkinson Hyperlegible", "Segoe UI", system-ui, -apple-system, Helvetica, Arial, sans-serif; font-size: 11.5px; paint-order: stroke; stroke-width: 4px; stroke-linejoin: round; }
+.t-code { font-family: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace; font-size: 13px; font-weight: 600; }
+.t-type { font-family: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace; font-size: 11.5px; }
+.t-bound { font-family: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace; font-size: 12px; font-weight: 600; }
+.t-leg { font-family: "Atkinson Hyperlegible", "Segoe UI", system-ui, -apple-system, Helvetica, Arial, sans-serif; font-size: 12px; }
+.edge { fill: none; stroke-width: 1.25; }
+.edge-later { fill: none; stroke-width: 1.25; stroke-dasharray: 5 4; }
+.bg { fill: #FFFFFF; }
+.b-sys { fill: #F5E9CC; stroke: #A56F0A; stroke-width: 2; }
+.b-per { fill: #E3EBF2; stroke: #3B5B7A; stroke-width: 1.25; }
+.b-mac { fill: #E6E4EE; stroke: #5E5A78; stroke-width: 1.25; }
+.b-ext { fill: #ECEFED; stroke: #8A9791; stroke-width: 1.25; }
+.b-cmp { fill: #FFFFFF; stroke: #8A9791; stroke-width: 1.25; }
+.b-later { fill: none; stroke: #8A9791; stroke-width: 1.25; stroke-dasharray: 5 4; }
+.bound { fill: none; stroke: #B3BDB8; stroke-width: 1; }
+.head { fill: #3B5B7A; }
+.t-name, .t-code { fill: #16201D; }
+.t-type, .t-bound, .t-leg { fill: #66736E; }
+.t-desc { fill: #34413C; }
+.t-rel { fill: #66736E; stroke: #FFFFFF; }
+.edge, .edge-later { stroke: #8A9791; }
+.arrowhead { fill: #8A9791; }
+@media (prefers-color-scheme: dark) {
+.bg { fill: #171F1C; }
+.b-sys { fill: #3A2E13; stroke: #E3AA3C; }
+.b-per { fill: #1D2A36; stroke: #8EB4D8; }
+.b-mac { fill: #26243A; stroke: #A9A4C8; }
+.b-ext { fill: #1C2421; stroke: #7D8B85; }
+.b-cmp { fill: #171F1C; stroke: #7D8B85; }
+.b-later { stroke: #7D8B85; }
+.bound { stroke: #4A5752; }
+.head { fill: #8EB4D8; }
+.t-name, .t-code { fill: #E6ECE9; }
+.t-type, .t-bound, .t-leg { fill: #93A09A; }
+.t-desc { fill: #C3CDC8; }
+.t-rel { fill: #93A09A; stroke: #171F1C; }
+.edge, .edge-later { stroke: #7D8B85; }
+.arrowhead { fill: #7D8B85; }
+}
+</style>
+<defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="arrowhead" d="M0 0L10 5L0 10z"/></marker></defs>
+<rect class="bg" x="0" y="0" width="1000" height="790"/>
+<rect class="b-ext" x="40" y="40" width="280" height="110" rx="10"/>
+<text class="t-name" x="56" y="68">Player A's agent</text>
+<text class="t-type" x="56" y="86">[External system]</text>
+<text class="t-desc" x="56" y="110">An agent that picks moves. Calls</text>
+<text class="t-desc" x="56" y="126">the referee; the seat claim is its</text>
+<text class="t-desc" x="56" y="142">consent to the time control</text>
+<rect class="b-ext" x="360" y="40" width="280" height="220" rx="10"/>
+<text class="t-name" x="376" y="68">macula-mcp</text>
+<text class="t-type" x="376" y="86">[External: each agent's harness]</text>
+<text class="t-desc" x="376" y="110">How an agent reaches the mesh and</text>
+<text class="t-desc" x="376" y="126">decides: presence, capability calls,</text>
+<text class="t-desc" x="376" y="142">and the scheduler it waits on.</text>
+<text class="t-desc" x="376" y="158"></text>
+<text class="t-desc" x="376" y="174">The thinking half of the game lives</text>
+<text class="t-desc" x="376" y="190">here. The referee never calls a</text>
+<text class="t-desc" x="376" y="206">model, never picks a move, and</text>
+<text class="t-desc" x="376" y="222">never wakes an agent.</text>
+<rect class="b-ext" x="680" y="40" width="280" height="110" rx="10"/>
+<text class="t-name" x="696" y="68">Player B's agent</text>
+<text class="t-type" x="696" y="86">[External system]</text>
+<text class="t-desc" x="696" y="110">The other seat. Same shape: it</text>
+<text class="t-desc" x="696" y="126">claims a color, moves on its turn</text>
+<text class="t-desc" x="696" y="142">or forfeits on the clock</text>
+<rect class="b-ext" x="40" y="320" width="280" height="130" rx="10"/>
+<text class="t-name" x="56" y="348">Anyone watching</text>
+<text class="t-type" x="56" y="366">[External system]</text>
+<text class="t-desc" x="56" y="390">Other agents, board viewers, a</text>
+<text class="t-desc" x="56" y="406">future reputation division:</text>
+<text class="t-desc" x="56" y="422">mesh_watch the facts, never the</text>
+<text class="t-desc" x="56" y="438">service's private state</text>
+<rect class="b-mac" x="360" y="320" width="280" height="130" rx="10"/>
+<text class="t-name" x="376" y="348">Macula mesh</text>
+<text class="t-type" x="376" y="366">[Macula infrastructure]</text>
+<text class="t-desc" x="376" y="390">Pinned stations are the entry</text>
+<text class="t-desc" x="376" y="406">points (QUIC); the union of</text>
+<text class="t-desc" x="376" y="422">stations routes an org procedure;</text>
+<text class="t-desc" x="376" y="438">the facts travel its topics</text>
+<rect class="b-sys" x="680" y="320" width="280" height="130" rx="10"/>
+<text class="t-name" x="696" y="348">mcl-chess</text>
+<text class="t-type" x="696" y="366">[mcl_om mesh service, own box]</text>
+<text class="t-desc" x="696" y="390">The referee: validates, clocks and</text>
+<text class="t-desc" x="696" y="406">sequences one game, records a</text>
+<text class="t-desc" x="696" y="422">disputable transcript, publishes</text>
+<text class="t-desc" x="696" y="438">facts. One service, one truth</text>
+<rect class="b-mac" x="360" y="530" width="280" height="110" rx="10"/>
+<text class="t-name" x="376" y="558">macula-realm</text>
+<text class="t-type" x="376" y="576">[Macula infrastructure]</text>
+<text class="t-desc" x="376" y="600">Admits the org mcl-chess and issues</text>
+<text class="t-desc" x="376" y="616">the D25 provider grant per procedure;</text>
+<text class="t-desc" x="376" y="632">a call without one is refused</text>
+<rect class="b-later" x="680" y="530" width="280" height="110" rx="10"/>
+<text class="t-name" x="696" y="558">Future matchmaker</text>
+<text class="t-type" x="696" y="576">[planned: separate division]</text>
+<text class="t-desc" x="696" y="600">Decides who plays whom, then calls</text>
+<text class="t-desc" x="696" y="616">initiate_game with pre-assigned</text>
+<text class="t-desc" x="696" y="632">seats. Nothing here pairs players</text>
+<path class="edge" d="M320 95H360" marker-end="url(#a)"/>
+<text class="t-rel" x="340" y="86" text-anchor="middle">calls,</text>
+<text class="t-rel" x="340" y="120" text-anchor="middle">signed</text>
+<path class="edge" d="M680 95H640" marker-end="url(#a)"/>
+<text class="t-rel" x="660" y="86" text-anchor="middle">calls,</text>
+<text class="t-rel" x="660" y="120" text-anchor="middle">signed</text>
+<path class="edge" d="M500 260V320" marker-end="url(#a)"/>
+<text class="t-rel" x="508" y="296">joins the mesh through a station</text>
+<path class="edge" d="M640 345H680" marker-end="url(#a)"/>
+<text class="t-rel" x="660" y="337" text-anchor="middle">routes</text>
+<text class="t-rel" x="660" y="371" text-anchor="middle">calls</text>
+<path class="edge" d="M680 395H640" marker-end="url(#a)"/>
+<text class="t-rel" x="660" y="413" text-anchor="middle">facts</text>
+<path class="edge" d="M360 375H320" marker-end="url(#a)"/>
+<text class="t-rel" x="340" y="367" text-anchor="middle">topics</text>
+<path class="edge" d="M560 530V470H712V450" marker-end="url(#a)"/>
+<text class="t-rel" x="570" y="512">admits, grants</text>
+<path class="edge-later" d="M820 530V450" marker-end="url(#a)"/>
+<text class="t-rel" x="812" y="496" text-anchor="end">initiate_game, seats assigned</text>
+<text class="t-desc" x="40" y="672">Trust: the referee is one service both sides call, so neither has to trust the other's agent to keep the rules. Every</text>
+<text class="t-desc" x="40" y="690">decision is an event in the service's own store, and every event a fact on the mesh: a game replays and is disputed from</text>
+<text class="t-desc" x="40" y="708">the transcript alone. Attribution is by the wire, never the payload, so a caller cannot claim the other seat. A node that</text>
+<text class="t-desc" x="40" y="726">stops moving forfeits on the clock both seats accepted by claiming.</text>
+<rect class="b-sys" x="24" y="762" width="22" height="14" rx="3"/>
+<text class="t-leg" x="54" y="774">In scope</text>
+<rect class="b-mac" x="110.8" y="762" width="22" height="14" rx="3"/>
+<text class="t-leg" x="140.8" y="774">Macula infrastructure</text>
+<rect class="b-ext" x="283.4" y="762" width="22" height="14" rx="3"/>
+<text class="t-leg" x="313.4" y="774">External system</text>
+<rect class="b-cmp" x="416.4" y="762" width="22" height="14" rx="3"/>
+<text class="t-leg" x="446.4" y="774">Container or component</text>
+<rect class="b-later" x="595.5999999999999" y="762" width="22" height="14" rx="3"/>
+<text class="t-leg" x="625.5999999999999" y="774">Planned, not built</text>
+<rect class="bound" x="748.3999999999999" y="762" width="22" height="14" rx="3"/>
+<text class="t-leg" x="778.3999999999999" y="774">Boundary</text>
+</svg>

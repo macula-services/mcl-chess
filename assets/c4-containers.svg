@@ -1,0 +1,148 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 720" role="img" aria-label="mcl-chess containers">
+<title>mcl-chess containers</title>
+<style>
+.t-name { font-family: "Atkinson Hyperlegible", "Segoe UI", system-ui, -apple-system, Helvetica, Arial, sans-serif; font-size: 15px; font-weight: 700; }
+.t-desc { font-family: "Atkinson Hyperlegible", "Segoe UI", system-ui, -apple-system, Helvetica, Arial, sans-serif; font-size: 12.5px; }
+.t-rel { font-family: "Atkinson Hyperlegible", "Segoe UI", system-ui, -apple-system, Helvetica, Arial, sans-serif; font-size: 11.5px; paint-order: stroke; stroke-width: 4px; stroke-linejoin: round; }
+.t-code { font-family: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace; font-size: 13px; font-weight: 600; }
+.t-type { font-family: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace; font-size: 11.5px; }
+.t-bound { font-family: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace; font-size: 12px; font-weight: 600; }
+.t-leg { font-family: "Atkinson Hyperlegible", "Segoe UI", system-ui, -apple-system, Helvetica, Arial, sans-serif; font-size: 12px; }
+.edge { fill: none; stroke-width: 1.25; }
+.edge-later { fill: none; stroke-width: 1.25; stroke-dasharray: 5 4; }
+.bg { fill: #FFFFFF; }
+.b-sys { fill: #F5E9CC; stroke: #A56F0A; stroke-width: 2; }
+.b-per { fill: #E3EBF2; stroke: #3B5B7A; stroke-width: 1.25; }
+.b-mac { fill: #E6E4EE; stroke: #5E5A78; stroke-width: 1.25; }
+.b-ext { fill: #ECEFED; stroke: #8A9791; stroke-width: 1.25; }
+.b-cmp { fill: #FFFFFF; stroke: #8A9791; stroke-width: 1.25; }
+.b-later { fill: none; stroke: #8A9791; stroke-width: 1.25; stroke-dasharray: 5 4; }
+.bound { fill: none; stroke: #B3BDB8; stroke-width: 1; }
+.head { fill: #3B5B7A; }
+.t-name, .t-code { fill: #16201D; }
+.t-type, .t-bound, .t-leg { fill: #66736E; }
+.t-desc { fill: #34413C; }
+.t-rel { fill: #66736E; stroke: #FFFFFF; }
+.edge, .edge-later { stroke: #8A9791; }
+.arrowhead { fill: #8A9791; }
+@media (prefers-color-scheme: dark) {
+.bg { fill: #171F1C; }
+.b-sys { fill: #3A2E13; stroke: #E3AA3C; }
+.b-per { fill: #1D2A36; stroke: #8EB4D8; }
+.b-mac { fill: #26243A; stroke: #A9A4C8; }
+.b-ext { fill: #1C2421; stroke: #7D8B85; }
+.b-cmp { fill: #171F1C; stroke: #7D8B85; }
+.b-later { stroke: #7D8B85; }
+.bound { stroke: #4A5752; }
+.head { fill: #8EB4D8; }
+.t-name, .t-code { fill: #E6ECE9; }
+.t-type, .t-bound, .t-leg { fill: #93A09A; }
+.t-desc { fill: #C3CDC8; }
+.t-rel { fill: #93A09A; stroke: #171F1C; }
+.edge, .edge-later { stroke: #7D8B85; }
+.arrowhead { fill: #7D8B85; }
+}
+</style>
+<defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="arrowhead" d="M0 0L10 5L0 10z"/></marker></defs>
+<rect class="bg" x="0" y="0" width="1080" height="720"/>
+<rect class="bound" x="24" y="40" width="576" height="560" rx="12"/>
+<text class="t-bound" x="40" y="62">The mcl-chess box [mcl_om mesh service, one OCI container]</text>
+<rect class="b-sys" x="44" y="76" width="536" height="110" rx="10"/>
+<text class="t-name" x="60" y="104">mcl_chess (boot app)</text>
+<text class="t-type" x="60" y="122">[OTP release, mcl_om_service]</text>
+<text class="t-desc" x="60" y="146">Opens the event store before mcl_om:boot/1, supervises the three departments,</text>
+<text class="t-desc" x="60" y="162">/health, and advertises the capabilities, naming any missing D25 grant.</text>
+<rect class="b-cmp" x="44" y="206" width="168" height="120" rx="10"/>
+<text class="t-name" x="60" y="234">play_games</text>
+<text class="t-type" x="60" y="252">[CMD: commands, events, policies]</text>
+<text class="t-desc" x="60" y="276">One desk per slice, from</text>
+<text class="t-desc" x="60" y="292">game initiation to archive.</text>
+<text class="t-desc" x="60" y="308">The only writer of events</text>
+<rect class="b-cmp" x="228" y="206" width="168" height="120" rx="10"/>
+<text class="t-name" x="244" y="234">project_games</text>
+<text class="t-type" x="244" y="252">[PRJ: projections]</text>
+<text class="t-desc" x="244" y="276">One projection per event,</text>
+<text class="t-desc" x="244" y="292">writing the read model and</text>
+<text class="t-desc" x="244" y="308">the computed status label</text>
+<rect class="b-cmp" x="412" y="206" width="168" height="120" rx="10"/>
+<text class="t-name" x="428" y="234">query_games</text>
+<text class="t-type" x="428" y="252">[QRY: read model]</text>
+<text class="t-desc" x="428" y="276">get_game_by_id, by status,</text>
+<text class="t-desc" x="428" y="292">page, by player. Answers</text>
+<text class="t-desc" x="428" y="308">from SQLite, never events</text>
+<rect class="b-cmp" x="44" y="346" width="250" height="120" rx="10"/>
+<text class="t-name" x="60" y="374">Event store</text>
+<text class="t-type" x="60" y="392">[reckon_db, volume /data]</text>
+<text class="t-desc" x="60" y="416">The source of truth: one stream</text>
+<text class="t-desc" x="60" y="432">per game, replayed to rebuild</text>
+<text class="t-desc" x="60" y="448">the aggregate on demand</text>
+<rect class="b-cmp" x="310" y="346" width="270" height="120" rx="10"/>
+<text class="t-name" x="326" y="374">Read model</text>
+<text class="t-type" x="326" y="392">[SQLite through esqlite]</text>
+<text class="t-desc" x="326" y="416">Board, move list, clocks, status</text>
+<text class="t-desc" x="326" y="432">and label: what queries serve and</text>
+<text class="t-desc" x="326" y="448">what a board viewer rebuilds from</text>
+<rect class="b-cmp" x="44" y="486" width="536" height="96" rx="10"/>
+<text class="t-name" x="60" y="514">Identity and realm admission</text>
+<text class="t-type" x="60" y="532">[node identity key, D25 grants]</text>
+<text class="t-desc" x="60" y="556">The identity key names the service to the realm; a procedure</text>
+<text class="t-desc" x="60" y="572">without its grant is refused at the boundary.</text>
+<rect class="b-mac" x="780" y="76" width="280" height="120" rx="10"/>
+<text class="t-name" x="796" y="104">Macula mesh</text>
+<text class="t-type" x="796" y="122">[Macula infrastructure]</text>
+<text class="t-desc" x="796" y="146">Entry through pinned stations (QUIC);</text>
+<text class="t-desc" x="796" y="162">capabilities advertised as</text>
+<text class="t-desc" x="796" y="178">mcl-chess/&lt;verb&gt;; facts on topics</text>
+<rect class="b-mac" x="780" y="216" width="280" height="120" rx="10"/>
+<text class="t-name" x="796" y="244">macula-realm</text>
+<text class="t-type" x="796" y="262">[Macula infrastructure]</text>
+<text class="t-desc" x="796" y="286">Org mcl-chess, the node endorsement</text>
+<text class="t-desc" x="796" y="302">and one D25 grant per published</text>
+<text class="t-desc" x="796" y="318">procedure</text>
+<rect class="b-ext" x="780" y="356" width="280" height="120" rx="10"/>
+<text class="t-name" x="796" y="384">ghcr.io</text>
+<text class="t-type" x="796" y="402">[External: signed images]</text>
+<text class="t-desc" x="796" y="426">The release image, by digest, signed</text>
+<text class="t-desc" x="796" y="442">and attested; the reconciler</text>
+<text class="t-desc" x="796" y="458">refuses an unsigned one on enforce</text>
+<rect class="b-later" x="780" y="496" width="280" height="120" rx="10"/>
+<text class="t-name" x="796" y="524">macula-fleet</text>
+<text class="t-type" x="796" y="542">[planned: WP8, out of this range]</text>
+<text class="t-desc" x="796" y="566">The fleet definition: edge config,</text>
+<text class="t-desc" x="796" y="582">reconcile.manifest entry, digest</text>
+<text class="t-desc" x="796" y="598">pin, canary first</text>
+<path class="edge" d="M128 186V206" marker-end="url(#a)"/>
+<text class="t-rel" x="136" y="200">supervises</text>
+<path class="edge" d="M312 186V206" marker-end="url(#a)"/>
+<path class="edge" d="M496 186V206" marker-end="url(#a)"/>
+<path class="edge" d="M128 326V346" marker-end="url(#a)"/>
+<text class="t-rel" x="136" y="340">appends</text>
+<path class="edge" d="M360 326V346" marker-end="url(#a)"/>
+<text class="t-rel" x="368" y="340">writes</text>
+<path class="edge" d="M496 346V326" marker-end="url(#a)"/>
+<text class="t-rel" x="504" y="340">reads</text>
+<path class="edge" d="M294 406H310" marker-end="url(#a)"/>
+<path class="edge" d="M580 110H780" marker-end="url(#a)"/>
+<text class="t-rel" x="680" y="96" text-anchor="middle">advertises the capabilities</text>
+<text class="t-rel" x="680" y="142" text-anchor="middle">and publishes the facts</text>
+<path class="edge" d="M780 250L600 178" marker-end="url(#a)"/>
+<text class="t-rel" x="690" y="250" text-anchor="middle">admits, grants</text>
+<path class="edge" d="M780 400L600 474" marker-end="url(#a)"/>
+<text class="t-rel" x="690" y="452" text-anchor="middle">the image this box runs</text>
+<path class="edge-later" d="M920 496V476" marker-end="url(#a)"/>
+<text class="t-rel" x="928" y="492">pins</text>
+<text class="t-desc" x="40" y="636">One container, one box: the v1 horizon is a single service node hosting many concurrent games, each its own aggregate and</text>
+<text class="t-desc" x="40" y="654">its own clock instance. Scaling out to several nodes is a later design, not v1; the per-game independence keeps it possible.</text>
+<rect class="b-sys" x="24" y="692" width="22" height="14" rx="3"/>
+<text class="t-leg" x="54" y="704">In scope</text>
+<rect class="b-mac" x="110.8" y="692" width="22" height="14" rx="3"/>
+<text class="t-leg" x="140.8" y="704">Macula infrastructure</text>
+<rect class="b-ext" x="283.4" y="692" width="22" height="14" rx="3"/>
+<text class="t-leg" x="313.4" y="704">External system</text>
+<rect class="b-cmp" x="416.4" y="692" width="22" height="14" rx="3"/>
+<text class="t-leg" x="446.4" y="704">Container or component</text>
+<rect class="b-later" x="595.5999999999999" y="692" width="22" height="14" rx="3"/>
+<text class="t-leg" x="625.5999999999999" y="704">Planned, not built</text>
+<rect class="bound" x="748.3999999999999" y="692" width="22" height="14" rx="3"/>
+<text class="t-leg" x="778.3999999999999" y="704">Boundary</text>
+</svg>
