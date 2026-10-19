@@ -97,7 +97,7 @@ fn referee_perft(fen: &str, depth: u8) -> u64 {
     legal_moves(&board)
         .into_iter()
         .map(|mv| {
-            let (next, _hash) = apply_move(fen, &mv.to_string())
+            let (next, _hash, _resets) = apply_move(fen, &mv.to_string())
                 .unwrap_or_else(|e| panic!("{mv} refused in {fen}: {e:?}"));
             referee_perft(&next, depth - 1)
         })
@@ -169,16 +169,16 @@ fn the_referees_own_path_counts_the_same_nodes() {
 #[test]
 fn the_hash_is_the_positions_own() {
     let start = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
-    let (after_e4, hash_e4) = apply_move(start, "e2e4").unwrap();
-    let (_, hash_d4) = apply_move(start, "d2d4").unwrap();
+    let (after_e4, hash_e4, _) = apply_move(start, "e2e4").unwrap();
+    let (_, hash_d4, _) = apply_move(start, "d2d4").unwrap();
     assert_ne!(hash_e4, hash_d4, "different positions, different hashes");
 
     // 1. e4 e5 2. Nf3 and 1. Nf3 e5 2. e4 arrive at the same board.
-    let (a, _) = apply_move(&after_e4, "e7e5").unwrap();
-    let (a, _) = apply_move(&a, "g1f3").unwrap();
-    let (b, _) = apply_move(start, "g1f3").unwrap();
-    let (b, _) = apply_move(&b, "e7e5").unwrap();
-    let (b, hash_b) = apply_move(&b, "e2e4").unwrap();
+    let (a, _, _) = apply_move(&after_e4, "e7e5").unwrap();
+    let (a, _, _) = apply_move(&a, "g1f3").unwrap();
+    let (b, _, _) = apply_move(start, "g1f3").unwrap();
+    let (b, _, _) = apply_move(&b, "e7e5").unwrap();
+    let (b, hash_b, _) = apply_move(&b, "e2e4").unwrap();
     assert_ne!(
         a, b,
         "the FENs differ in the en passant field, as they should"
@@ -190,8 +190,8 @@ fn the_hash_is_the_positions_own() {
         "but FIDE calls them the same position"
     );
 
-    let (_, hash_a) = apply_move(&a, "a7a6").unwrap();
-    let (_, hash_b2) = apply_move(&b, "a7a6").unwrap();
+    let (_, hash_a, _) = apply_move(&a, "a7a6").unwrap();
+    let (_, hash_b2, _) = apply_move(&b, "a7a6").unwrap();
     assert_eq!(
         hash_a, hash_b2,
         "the hash follows the position, not the move order"

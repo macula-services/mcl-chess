@@ -30,6 +30,8 @@ init([]) ->
            %% makes that true, and each UPDATE checks its row is there.
            projection(seat_claimed_v1_to_sqlite_games),
            projection(game_started_v1_to_sqlite_games),
+           projection(move_played_v1_to_sqlite_games),
+           projection(game_ended_v1_to_sqlite_games),
            projection(game_archived_v1_to_sqlite_games)]}}.
 
 projection(Module) ->

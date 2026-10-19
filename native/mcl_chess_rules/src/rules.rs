@@ -46,11 +46,18 @@ impl std::fmt::Display for MoveError {
     }
 }
 
-/// The four verdicts the referee acts on. A closed set by design (plan §8.7):
-/// the 50 move and 75 move draws are claims, not verdicts, and arrive in v2.
+/// The verdicts the referee acts on. A closed set by design (plan §8.7): the
+/// 50 move and threefold draws are claims, and claims are v2; the 75 move and
+/// fivefold draws are automatic (operator decision, mcl-chess#4), so they are
+/// here.
+///
+/// Fivefold repetition is the one automatic draw that is NOT a verdict of this
+/// module: it is not a function of one position, so the aggregate counts it
+/// over the hashes its events recorded.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Verdict {
-    /// Legal moves exist and neither side is dead: play on.
+    /// Legal moves exist, neither side is dead, and the counter is short of
+    /// the 75 move rule: play on.
     Active,
     /// The side to move is in check and has no legal move.
     Checkmate,
@@ -58,7 +65,13 @@ pub enum Verdict {
     Stalemate,
     /// Neither side can ever deliver mate with the material on the board.
     InsufficientMaterial,
+    /// Both players have made 75 moves without a pawn moving or a capture.
+    SeventyFiveMoves,
 }
+
+/// The halfmove count at which the 75 move rule ends a game: 75 moves by each
+/// player is 150 halfmoves. FIDE's automatic draw, not the 50 move claim.
+pub const SEVENTY_FIVE_MOVE_HALFMOVES: u64 = 150;
 
 impl Verdict {
     /// The wire name, as it appears in an event.
@@ -68,6 +81,7 @@ impl Verdict {
             Verdict::Checkmate => "checkmate",
             Verdict::Stalemate => "stalemate",
             Verdict::InsufficientMaterial => "insufficient_material",
+            Verdict::SeventyFiveMoves => "seventy_five_moves",
         }
     }
 }
@@ -85,16 +99,37 @@ pub fn validate_move(fen: &str, uci: &str) -> Result<(), MoveError> {
 
 /// Play `uci` in this position.
 ///
-/// Returns the position after the move as a FEN and its Zobrist hash. The hash
-/// is what the referee records for repetition, so it is the FIDE one: two
-/// positions hash the same when the same moves are available from them (see
+/// Returns the position after the move as a FEN, its Zobrist hash, and whether
+/// the move reset the halfmove counter (a pawn moved, or something was
+/// captured).
+///
+/// That last element exists because the referee keeps its OWN halfmove count
+/// and cozy-chess cannot give it back: `Board`'s counter is a `u8` clamped to
+/// 100, and the 75 move rule fires at 150. The referee adds one per move and
+/// resets on this flag, so the count is unbounded and replayable.
+///
+/// The hash is what the referee records for repetition, so it is the FIDE one:
+/// two positions hash the same when the same moves are available from them (see
 /// [`position_hash`]).
-pub fn apply_move(fen: &str, uci: &str) -> Result<(String, u64), MoveError> {
+pub fn apply_move(fen: &str, uci: &str) -> Result<(String, u64, bool), MoveError> {
     let mut position = board(fen)?;
     let mv = resolve(&position, uci)?;
+    let resets = resets_halfmove_clock(&position, mv);
     position.try_play(mv).map_err(|_| MoveError::IllegalMove)?;
     let hash = position_hash(&position);
-    Ok((position.to_string(), hash))
+    Ok((position.to_string(), hash, resets))
+}
+
+/// Does this move reset the halfmove counter?
+///
+/// The same rule cozy-chess applies inside `play_unchecked`, written out here
+/// because the referee needs the answer and the library keeps it private: a
+/// pawn move, or a capture. A castle is spelled king-takes-own-rook in
+/// Chess960 UCI, so the square is occupied and that is not a capture.
+fn resets_halfmove_clock(position: &Board, mv: Move) -> bool {
+    let is_castle = position.colors(position.side_to_move()).has(mv.to);
+    position.piece_on(mv.from) == Some(Piece::Pawn)
+        || (position.piece_on(mv.to).is_some() && !is_castle)
 }
 
 /// The Zobrist hash the referee records in `move_played_v1`.
@@ -114,6 +149,15 @@ pub fn position_hash(position: &Board) -> u64 {
     } else {
         position.hash_without_ep()
     }
+}
+
+/// The Zobrist hash of an en passant aware position given as a FEN.
+///
+/// The aggregate seeds its repetition history with this: the position a game
+/// starts from is one of the positions a repetition can return to, so a
+/// fivefold count that began at the first move would miss it.
+pub fn position_hash_of(fen: &str) -> Result<u64, MoveError> {
+    Ok(position_hash(&board(fen)?))
 }
 
 /// The en passant file, if a pawn of the side to move can legally capture onto
@@ -136,25 +180,24 @@ fn playable_en_passant(position: &Board) -> Option<File> {
 
 /// The verdict on a position, given the referee's halfmove clock.
 ///
-/// `halfmove_clock` is the referee's own count, not the FEN's.
+/// `halfmove_clock` is the referee's own count, not the FEN's: the FEN's field
+/// is a `u8` capped at 100 by cozy-chess, and the 75 move rule fires at 150.
 ///
-/// It is taken and documented rather than read, and that is the honest
-/// statement of where this stands: no v1 verdict depends on it, because a draw
-/// by the move counter is a claim in v2 (mcl-chess#1, design of record), not an
-/// automatic verdict in v1. The parameter is in the Design Gate's signature and
-/// the v2 claim path reads it, so it is not removed here; see mcl-chess#4,
-/// which records the consequence: a v1 game whose position stays playable is
-/// `active` however long the counter runs, and nothing ends it.
+/// Order matters, and it is FIDE's: checkmate wins over the counter (a mate on
+/// the 150th halfmove ends the game as a win), and a position that is dead on
+/// its own terms reports its own reason (a stalemate is `stalemate`, not
+/// `seventy_five_moves`), because that is the more useful record. The counter
+/// is the last thing asked, and only of a position that is otherwise playable.
 ///
-/// It is a `u64` on purpose. Nothing ends a v1 game on the counter, so the
-/// count can leave the range of a byte or of a `u32`, and a call that refused
-/// such a value would make the referee unable to judge the rest of that game.
+/// The parameter is a `u64` on purpose: the count has no ceiling, and a call
+/// that refused a large one would make the referee unable to judge the rest of
+/// that game.
 pub fn status(fen: &str, halfmove_clock: u64) -> Result<Verdict, MoveError> {
     let position = board(fen)?;
     Ok(verdict(&position, halfmove_clock))
 }
 
-fn verdict(position: &Board, _halfmove_clock: u64) -> Verdict {
+fn verdict(position: &Board, halfmove_clock: u64) -> Verdict {
     if !position.generate_moves(|_| true) {
         return if position.checkers().is_empty() {
             Verdict::Stalemate
@@ -163,10 +206,12 @@ fn verdict(position: &Board, _halfmove_clock: u64) -> Verdict {
         };
     }
     if is_insufficient_material(position) {
-        Verdict::InsufficientMaterial
-    } else {
-        Verdict::Active
+        return Verdict::InsufficientMaterial;
     }
+    if halfmove_clock >= SEVENTY_FIVE_MOVE_HALFMOVES {
+        return Verdict::SeventyFiveMoves;
+    }
+    Verdict::Active
 }
 
 /// Resolve a UCI string against a position, translating a standard castle

@@ -4,6 +4,9 @@
 %%   seat_claimed_v1   on `<realm>/mcl-chess/chess/game/seat_claimed_v1'
 %%   seat_refused_v1   on `<realm>/mcl-chess/chess/game/seat_refused_v1'
 %%   game_started_v1   on `<realm>/mcl-chess/chess/game/game_started_v1'
+%%   move_played_v1    on `<realm>/mcl-chess/chess/game/move_played_v1'
+%%   move_refused_v1   on `<realm>/mcl-chess/chess/game/move_refused_v1'
+%%   game_ended_v1     on `<realm>/mcl-chess/chess/game/game_ended_v1'
 %%   game_archived_v1  on `<realm>/mcl-chess/chess/game/game_archived_v1'
 %%
 %% One topic per fact kind; the game id is in the payload, never in the topic
@@ -16,6 +19,7 @@
 -module(mcl_chess_facts).
 
 -export([game_initiated/1, seat_claimed/1, seat_refused/1, game_started/1,
+         move_played/1, move_refused/1, game_ended/1,
          game_archived/1, to_wire/1, topic/2, realm_name/0]).
 
 -define(ORG, <<"mcl-chess">>).
@@ -62,12 +66,48 @@ seat_claimed(Event) ->
 -spec seat_refused(map()) -> map().
 seat_refused(Event) ->
     (maps:from_list([{Field, field(Field, Event)} || Field <- ?SEAT_FIELDS]))
-        #{reason => reason_text(field(reason, Event))}.
+        #{reason => text(field(reason, Event))}.
 
-%% The event's reason is an atom, the answer is text: one conversion, here,
-%% rather than in every consumer.
-reason_text(Reason) when is_atom(Reason) -> atom_to_binary(Reason, utf8);
-reason_text(Reason) -> Reason.
+%% The event's reason and outcome are atoms, the wire carries text: one
+%% conversion, here, rather than in every consumer. An atom would reach CBOR as
+%% an atom, which is not a thing the mesh encodes.
+text(Value) when is_atom(Value) -> atom_to_binary(Value, utf8);
+text(Value) -> Value.
+
+%% @doc The fact for a move_played_v1 event: the move, the position it
+%% produced and the counts the end rules read.
+%%
+%% `move' travels as the UCI text the caller sent, and the position as the FEN
+%% the rules engine produced, so a viewer rebuilds the game from the facts
+%% alone. `position_hash', `halfmove_clock' and `repetitions' are published
+%% because they are what the referee judged on: a consumer that re-derives a
+%% verdict from the board and one that reads the record agree.
+-spec move_played(map()) -> map().
+move_played(Event) ->
+    maps:from_list([{Field, field(Field, Event)}
+                    || Field <- [game_id, player_node_id, move, ply, fen_after,
+                                 position_hash, halfmove_clock, repetitions,
+                                 to_move, clocks, status, at_ms]]).
+
+%% @doc The fact for a move_refused_v1 event: a seat holder's foul attempt, with
+%% the same evidence role as a refused seat and the reason as text.
+-spec move_refused(map()) -> map().
+move_refused(Event) ->
+    (maps:from_list([{Field, field(Field, Event)}
+                     || Field <- [game_id, player_node_id, move, ply, fen_after,
+                                  clocks, status, at_ms]]))
+        #{reason => text(field(reason, Event))}.
+
+%% @doc The fact for a game_ended_v1 event: who won, why, and the final
+%% position. `winner_node_id' is absent for a draw in the sense that it is the
+%% empty text, not a missing key: a consumer can switch on `outcome' alone.
+-spec game_ended(map()) -> map().
+game_ended(Event) ->
+    (maps:from_list([{Field, field(Field, Event)}
+                     || Field <- [game_id, winner_node_id, fen_after, ply,
+                                  clocks, status, at_ms]]))
+        #{outcome => text(field(outcome, Event)),
+          reason => text(field(reason, Event))}.
 
 %% @doc The fact for a game_started_v1 event: both holders by colour, the
 %% position the game starts from, and the clocks it starts with.
@@ -75,8 +115,8 @@ reason_text(Reason) -> Reason.
 game_started(Event) ->
     maps:from_list([{Field, field(Field, Event)}
                     || Field <- [game_id, white_node_id, black_node_id,
-                                 position, to_move, ply, clocks, status,
-                                 at_ms]]).
+                                 position, position_hash, to_move, ply, clocks,
+                                 status, at_ms]]).
 
 field(Field, Event) ->
     maps:get(Field, Event, maps:get(atom_to_binary(Field, utf8), Event, undefined)).
@@ -91,7 +131,8 @@ to_wire(M) when is_map(M) -> maps:map(fun(_K, V) -> to_wire(V) end, M);
 to_wire(Other) -> Other.
 
 -spec topic(binary(), game_initiated | seat_claimed | seat_refused |
-                         game_started | game_archived) -> binary().
+                         game_started | move_played | move_refused |
+                         game_ended | game_archived) -> binary().
 topic(RealmName, game_initiated) ->
     macula_topic:app_fact(RealmName, ?ORG, ?APP, ?DOMAIN, <<"game_initiated">>,
                           ?VERSION);
@@ -103,6 +144,15 @@ topic(RealmName, seat_refused) ->
                           ?VERSION);
 topic(RealmName, game_started) ->
     macula_topic:app_fact(RealmName, ?ORG, ?APP, ?DOMAIN, <<"game_started">>,
+                          ?VERSION);
+topic(RealmName, move_played) ->
+    macula_topic:app_fact(RealmName, ?ORG, ?APP, ?DOMAIN, <<"move_played">>,
+                          ?VERSION);
+topic(RealmName, move_refused) ->
+    macula_topic:app_fact(RealmName, ?ORG, ?APP, ?DOMAIN, <<"move_refused">>,
+                          ?VERSION);
+topic(RealmName, game_ended) ->
+    macula_topic:app_fact(RealmName, ?ORG, ?APP, ?DOMAIN, <<"game_ended">>,
                           ?VERSION);
 topic(RealmName, game_archived) ->
     macula_topic:app_fact(RealmName, ?ORG, ?APP, ?DOMAIN, <<"game_archived">>,

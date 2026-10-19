@@ -21,6 +21,9 @@ pub mod rules;
 #[cfg(test)]
 mod perft_tests;
 
+#[cfg(test)]
+mod end_tests;
+
 #[cfg(not(test))]
 mod nif;
 

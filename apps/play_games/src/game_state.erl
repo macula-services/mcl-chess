@@ -17,20 +17,30 @@
 
 -export([new/1, apply_event/2, to_map/1, from_map/1]).
 -export([game_id/1, status/1, initiator_node_id/1, seats/1, time_control/1]).
--export([position/1, to_move/1, ply/1, clocks/1]).
+-export([position/1, to_move/1, ply/1, clocks/1, halfmove_clock/1]).
+-export([position_hash/1, hash_history/1, repetition_count/1]).
+-export([advance_hashes/3, occurrences/2, at_ms/1, charge_turn/4]).
+-export([repetition_draw/0]).
+-export([outcome/1, winner_node_id/1, end_reason/1]).
 -export([seat/2, is_seated/2, both_seats_filled/1]).
 -export([colour_key/1, colour_wire/1]).
 -export([record_refusal/2, refusal_count/2, may_record_refusal/2,
          max_recorded_refusals/0]).
--export([is_archived/1, is_initiated/1, is_started/1, is_unstarted/1]).
+-export([is_archived/1, is_initiated/1, is_started/1, is_ended/1, is_unstarted/1]).
 -export([to_wire/1]).
 
 %% The cap on recorded refusals per player per game, settled at the Design Gate
 %% (answer 5, N = 10). It exists because a recorded refusal is evidence, and
 %% evidence a stranger can write without bound is a way to grow somebody else's
-%% stream. One definition, so WP5's move_refused_v1 uses this one rather than
-%% inventing a second.
+%% stream. One definition, shared by `seat_refused_v1' and `move_refused_v1'.
 -define(MAX_RECORDED_REFUSALS, 10).
+
+%% The number of times a position must have occurred for the automatic draw
+%% (mcl-chess#4). One definition: the move event records the count, the end
+%% policy compares against this, and the 50 move and threefold draws stay v2
+%% claims. The 75 move rule's 150 halfmoves are the rules engine's, because it
+%% is the engine that judges the position.
+-define(FIVEFOLD_REPETITION, 5).
 
 -opaque t() :: #game_state{}.
 -export_type([t/0]).
@@ -76,7 +86,44 @@ apply_event(State, #{event_type := <<"game_started_v1">>} = Event) ->
         to_move = maps:get(to_move, Data),
         ply = maps:get(ply, Data),
         clocks = maps:get(clocks, Data),
+        %% The counter starts at zero and the repetition history at the start
+        %% position, which is a position the game can return to.
+        halfmove_clock = 0,
+        hashes = [maps:get(position_hash, Data)],
         status = maps:get(status, Data),
+        at_ms = maps:get(at_ms, Data, State#game_state.at_ms)};
+%% A played move is the only event that advances the position, the counter and
+%% the repetition history. The counter is the event's own value rather than an
+%% increment here: the desk computed it, and a replay must fold the same one.
+apply_event(State, #{event_type := <<"move_played_v1">>} = Event) ->
+    Data = event_data(Event),
+    Hash = maps:get(position_hash, Data),
+    State#game_state{
+        position = maps:get(fen_after, Data),
+        to_move = maps:get(to_move, Data),
+        ply = maps:get(ply, Data),
+        clocks = maps:get(clocks, Data),
+        halfmove_clock = maps:get(halfmove_clock, Data),
+        hashes = advance_hashes(State#game_state.hashes,
+                                maps:get(halfmove_clock, Data), Hash),
+        status = maps:get(status, Data),
+        at_ms = maps:get(at_ms, Data, State#game_state.at_ms)};
+%% A move refusal is the same evidence class as a seat refusal: nothing about
+%% the game changes, and the count is what bounds it. `at_ms' is deliberately
+%% left alone, so the turn in progress keeps the moment it began and a refused
+%% move cannot shorten the mover's clock.
+apply_event(State, #{event_type := <<"move_refused_v1">>} = Event) ->
+    record_refusal(State, maps:get(player_node_id, event_data(Event)));
+apply_event(State, #{event_type := <<"game_ended_v1">>} = Event) ->
+    Data = event_data(Event),
+    State#game_state{
+        position = maps:get(fen_after, Data, State#game_state.position),
+        ply = maps:get(ply, Data, State#game_state.ply),
+        clocks = maps:get(clocks, Data, State#game_state.clocks),
+        status = maps:get(status, Data),
+        outcome = maps:get(outcome, Data),
+        winner_node_id = maps:get(winner_node_id, Data, <<>>),
+        end_reason = maps:get(reason, Data),
         at_ms = maps:get(at_ms, Data, State#game_state.at_ms)};
 apply_event(State, #{event_type := <<"game_archived_v1">>} = Event) ->
     Data = event_data(Event),
@@ -84,6 +131,44 @@ apply_event(State, #{event_type := <<"game_archived_v1">>} = Event) ->
                      at_ms = maps:get(at_ms, Data, State#game_state.at_ms)};
 apply_event(State, _Event) ->
     State.
+
+%% @doc The clocks after this player's turn ends at `At'.
+%%
+%% The turn began at the state's own `at_ms' (the last event that changed the
+%% game), so the elapsed time is deducible from the record rather than read from
+%% a wall clock. `ExtraMs' is what the turn earned: the time control's increment
+%% when a move completed, and 0 when the turn ended without one (a resignation),
+%% because an increment is paid for a move.
+%%
+%% A player whose time ran out is recorded at zero rather than gaining an
+%% increment for a turn that had already flagged.
+-spec charge_turn(t(), white | black, non_neg_integer(), non_neg_integer()) -> map().
+charge_turn(State, Colour, At, ExtraMs) ->
+    Clocks = clocks(State),
+    charged(maps:get(Colour, Clocks) - elapsed(State, At), ExtraMs, Clocks, Colour).
+
+elapsed(State, At) ->
+    max(0, At - at_ms(State)).
+
+charged(Left, _ExtraMs, Clocks, Colour) when Left =< 0 ->
+    Clocks#{Colour => 0};
+charged(Left, ExtraMs, Clocks, Colour) ->
+    Clocks#{Colour => Left + ExtraMs}.
+
+%% @doc The repetition history after a move.
+%%
+%% An irreversible move (a pawn move or a capture, the same moves that reset
+%% the counter) makes every earlier position unreachable, so the history starts
+%% again from this one: fivefold repetition can never look past it. One
+%% definition, used by the fold and by the move desk that writes the event.
+-spec advance_hashes([non_neg_integer()], non_neg_integer(), non_neg_integer()) ->
+          [non_neg_integer()].
+advance_hashes(_History, 0, Hash) -> [Hash];
+advance_hashes(History, _HalfmoveClock, Hash) -> [Hash | History].
+
+%% @doc How many times this hash occurs in a history.
+-spec occurrences([non_neg_integer()], non_neg_integer()) -> non_neg_integer().
+occurrences(History, Hash) -> length([H || H <- History, H =:= Hash]).
 
 -spec to_map(t()) -> map().
 to_map(#game_state{} = State) ->
@@ -95,7 +180,12 @@ to_map(#game_state{} = State) ->
       to_move => State#game_state.to_move,
       ply => State#game_state.ply,
       clocks => State#game_state.clocks,
+      halfmove_clock => State#game_state.halfmove_clock,
+      hashes => State#game_state.hashes,
       status => State#game_state.status,
+      outcome => State#game_state.outcome,
+      winner_node_id => State#game_state.winner_node_id,
+      end_reason => State#game_state.end_reason,
       initiator_node_id => State#game_state.initiator_node_id,
       refusals => State#game_state.refusals,
       at_ms => State#game_state.at_ms}.
@@ -111,7 +201,12 @@ from_map(#{game_id := GameId} = Map) ->
         to_move = maps:get(to_move, Map),
         ply = maps:get(ply, Map),
         clocks = maps:get(clocks, Map),
+        halfmove_clock = maps:get(halfmove_clock, Map, 0),
+        hashes = maps:get(hashes, Map, []),
         status = maps:get(status, Map),
+        outcome = maps:get(outcome, Map, none),
+        winner_node_id = maps:get(winner_node_id, Map, <<>>),
+        end_reason = maps:get(end_reason, Map, none),
         initiator_node_id = maps:get(initiator_node_id, Map, <<>>),
         %% Defaulted, so a snapshot written before this field existed still
         %% restores: an aggregate that forgot the count would start recording
@@ -137,6 +232,11 @@ to_wire(#game_state{} = State) ->
       <<"to_move">> => State#game_state.to_move,
       <<"ply">> => State#game_state.ply,
       <<"clocks">> => to_wire_clocks(State#game_state.clocks),
+      <<"halfmove_clock">> => State#game_state.halfmove_clock,
+      <<"repetitions">> => repetition_count(State),
+      <<"outcome">> => atom_to_binary(State#game_state.outcome, utf8),
+      <<"winner">> => State#game_state.winner_node_id,
+      <<"end_reason">> => atom_to_binary(State#game_state.end_reason, utf8),
       <<"initiator">> => State#game_state.initiator_node_id,
       <<"at_ms">> => State#game_state.at_ms}.
 
@@ -150,6 +250,9 @@ to_wire_clocks(Clocks) ->
 
 colour(white) -> <<"white">>;
 colour(black) -> <<"black">>.
+
+-spec at_ms(t()) -> non_neg_integer().
+at_ms(#game_state{at_ms = At}) -> At.
 
 -spec game_id(t()) -> binary().
 game_id(#game_state{game_id = GameId}) -> GameId.
@@ -177,6 +280,43 @@ ply(#game_state{ply = Ply}) -> Ply.
 
 -spec clocks(t()) -> map().
 clocks(#game_state{clocks = Clocks}) -> Clocks.
+
+%% @doc The referee's own halfmove count: the FEN's field cannot carry the
+%% number the 75 move rule needs.
+-spec halfmove_clock(t()) -> non_neg_integer().
+halfmove_clock(#game_state{halfmove_clock = Clock}) -> Clock.
+
+%% @doc The hash of the position the game stands in now, or 0 before the game
+%% started and no position has been recorded.
+-spec position_hash(t()) -> non_neg_integer().
+position_hash(#game_state{hashes = []}) -> 0;
+position_hash(#game_state{hashes = [Hash | _]}) -> Hash.
+
+%% @doc Every position hash recorded since the last irreversible move, newest
+%% first. Trimmed rather than grown for the length of a game.
+-spec hash_history(t()) -> [non_neg_integer()].
+hash_history(#game_state{hashes = Hashes}) -> Hashes.
+
+%% @doc How many times the current position has occurred. Five is the
+%% automatic draw (mcl-chess#4); three stays a v2 claim.
+-spec repetition_count(t()) -> non_neg_integer().
+repetition_count(#game_state{} = State) ->
+    occurrences(hash_history(State), position_hash(State)).
+
+-spec outcome(t()) -> none | winner | draw | forfeit | abandoned.
+outcome(#game_state{outcome = Outcome}) -> Outcome.
+
+-spec winner_node_id(t()) -> binary().
+winner_node_id(#game_state{winner_node_id = Winner}) -> Winner.
+
+-spec end_reason(t()) -> atom().
+end_reason(#game_state{end_reason = Reason}) -> Reason.
+
+%% @doc How many occurrences of one position end a game automatically: the
+%% fivefold draw, the one automatic draw the rules engine cannot see because it
+%% is not a function of one position.
+-spec repetition_draw() -> non_neg_integer().
+repetition_draw() -> ?FIVEFOLD_REPETITION.
 
 %% @doc The node holding this colour, or an empty binary when the seat is free.
 -spec seat(t(), white | black) -> binary().
@@ -235,6 +375,9 @@ is_initiated(#game_state{status = Status}) ->
 
 -spec is_started(t()) -> boolean().
 is_started(#game_state{status = Status}) -> evoq_bit_flags:has(Status, ?GAME_STARTED).
+
+-spec is_ended(t()) -> boolean().
+is_ended(#game_state{status = Status}) -> evoq_bit_flags:has(Status, ?GAME_ENDED).
 
 -spec is_unstarted(t()) -> boolean().
 is_unstarted(State) -> not is_started(State).

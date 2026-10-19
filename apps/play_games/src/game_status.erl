@@ -10,7 +10,7 @@
 -include("game_status.hrl").
 
 -export([initiated/0, open/0, started/0, ended/0, archived/0]).
--export([birth/0, started_from/1, archived_from/1, to_string/1]).
+-export([birth/0, started_from/1, ended_from/1, archived_from/1, to_string/1]).
 
 -define(LABELS, #{?GAME_NONE => <<"none">>,
                   ?GAME_INITIATED => <<"initiated">>,
@@ -46,6 +46,16 @@ birth() -> ?GAME_INITIATED bor ?GAME_OPEN.
 started_from(Status) ->
     Cleared = evoq_bit_flags:unset(Status, ?GAME_OPEN),
     evoq_bit_flags:set(Cleared, ?GAME_STARTED).
+
+%% @doc The status after the end slice, from whatever the game had.
+%%
+%% A game that has ended is no longer playing, so STARTED is cleared and ENDED
+%% set: the clock has stopped and every command but the death slice is refused.
+%% INITIATED stays for the same reason it stays everywhere else.
+-spec ended_from(non_neg_integer()) -> non_neg_integer().
+ended_from(Status) ->
+    Cleared = evoq_bit_flags:unset(Status, ?GAME_STARTED),
+    evoq_bit_flags:set(Cleared, ?GAME_ENDED).
 
 %% @doc The status after the death slice, from whatever the game had.
 %%

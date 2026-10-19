@@ -73,9 +73,14 @@ health_is_green_test() ->
 %%
 %% claim_seat joined in WP3: a seat is claimed by the caller itself, from the
 %% node id macula verified, and never by a body naming somebody else.
+%%
+%% submit_move and resign_game joined in WP5: a move is played by the seat the
+%% caller holds, and a resignation is the caller's own. end_game and flag_clock
+%% stay off this list, like start_game and archive_game: they are dispatched by
+%% policies, not by callers.
 announces_the_wire_capabilities_test() ->
     ?assertEqual([<<"claim_seat">>, <<"get_game_by_id">>, <<"initiate_game">>,
-                  <<"withdraw_game">>],
+                  <<"resign_game">>, <<"submit_move">>, <<"withdraw_game">>],
                  lists:sort([maps:get(name, C) || C <- ?SERVICE:capabilities()])).
 
 %% Every announced capability names a module that exists and implements the
@@ -99,7 +104,7 @@ authority_matches_what_is_announced_test() ->
     #{scope := Scope, resources := Resources} = ?SERVICE:identity_spec(),
     ?assertEqual(<<"mcl-chess">>, Scope),
     ?assertEqual([], Resources),
-    ?assertEqual(4, length(?SERVICE:capabilities())).
+    ?assertEqual(6, length(?SERVICE:capabilities())).
 
 %% The supervisor starts and stops cleanly on its own, without mcl_om. It has
 %% no children as generated; this asserts the tree is startable, not that it does

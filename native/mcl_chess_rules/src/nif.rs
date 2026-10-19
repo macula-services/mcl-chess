@@ -1,9 +1,9 @@
 //! The NIF surface of `mcl_chess_rules`.
 //!
-//! Three functions, stateless, microsecond scale: validate a move, apply a
-//! move, give a verdict. The logic lives in [`crate::rules`], which knows
-//! nothing about the BEAM and is tested on its own; this module is the thin
-//! translation between Rust values and Erlang terms.
+//! Four functions, stateless, microsecond scale: validate a move, apply a
+//! move, hash a position, give a verdict. The logic lives in [`crate::rules`],
+//! which knows nothing about the BEAM and is tested on its own; this module is
+//! the thin translation between Rust values and Erlang terms.
 //!
 //! There is no dirty scheduler here and no state: every call is bounded by one
 //! FEN parse and one move-generation pass, which is scheduler-safe at this
@@ -34,6 +34,7 @@ mod atoms {
         checkmate,
         stalemate,
         insufficient_material,
+        seventy_five_moves,
     }
 }
 
@@ -64,6 +65,18 @@ fn verdict_atom(verdict: rules::Verdict) -> Atom {
         rules::Verdict::Checkmate => atoms::checkmate(),
         rules::Verdict::Stalemate => atoms::stalemate(),
         rules::Verdict::InsufficientMaterial => atoms::insufficient_material(),
+        rules::Verdict::SeventyFiveMoves => atoms::seventy_five_moves(),
+    }
+}
+
+/// The halfmove-reset flag, as the 1/0 the rest of the division uses for flags
+/// rather than as an Erlang boolean: this travels no further than the desk, and
+/// one convention everywhere is one thing to remember.
+fn reset_flag(resets: bool) -> u32 {
+    if resets {
+        1
+    } else {
+        0
     }
 }
 
@@ -78,19 +91,35 @@ pub fn validate_move<'a>(env: Env<'a>, fen: Binary<'a>, uci: Binary<'a>) -> NifR
     })
 }
 
-/// `apply_move(Fen, Uci) -> {ok, Fen, ZobristHash} | {error, Reason}`
+/// `apply_move(Fen, Uci) -> {ok, Fen, ZobristHash, ResetsHalfmoveCounter}
+/// | {error, Reason}`
 #[rustler::nif]
 pub fn apply_move<'a>(env: Env<'a>, fen: Binary<'a>, uci: Binary<'a>) -> NifResult<Term<'a>> {
     let result =
         fen_str(fen).and_then(|fen| uci_str(uci).and_then(|uci| rules::apply_move(fen, uci)));
     Ok(match result {
-        Ok((next, hash)) => (atoms::ok(), next, hash).encode(env),
+        Ok((next, hash, resets)) => (atoms::ok(), next, hash, reset_flag(resets)).encode(env),
+        Err(error) => (atoms::error(), reason_atom(error)).encode(env),
+    })
+}
+
+/// `position_hash(Fen) -> ZobristHash | {error, invalid_fen}`
+///
+/// The aggregate seeds its repetition history with this, so a game's own start
+/// position is counted when a repetition returns to it.
+#[rustler::nif]
+pub fn position_hash<'a>(env: Env<'a>, fen: Binary<'a>) -> NifResult<Term<'a>> {
+    Ok(match fen_str(fen).and_then(rules::position_hash_of) {
+        Ok(hash) => hash.encode(env),
         Err(error) => (atoms::error(), reason_atom(error)).encode(env),
     })
 }
 
 /// `status(Fen, HalfmoveClock) -> active | checkmate | stalemate
-/// | insufficient_material | {error, invalid_fen}`
+/// | insufficient_material | seventy_five_moves | {error, invalid_fen}
+///
+/// `HalfmoveClock` is the referee's own count, `u64`: the FEN's field is capped
+/// at 100 by the library under this one, and the 75 move rule fires at 150.
 #[rustler::nif]
 pub fn status<'a>(env: Env<'a>, fen: Binary<'a>, halfmove_clock: u64) -> NifResult<Term<'a>> {
     Ok(

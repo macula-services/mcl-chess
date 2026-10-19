@@ -51,16 +51,28 @@ filled(true, State, Cmd) ->
 
 events(State, Cmd) ->
     Seats = game_state:seats(State),
+    Position = game_state:position(State),
     {ok, Event} = game_started_v1:new(#{
         game_id => start_game_v1:get_game_id(Cmd),
         white_node_id => maps:get(white, Seats),
         black_node_id => maps:get(black, Seats),
-        position => game_state:position(State),
+        position => Position,
+        position_hash => position_hash(Position),
         to_move => game_state:to_move(State),
         ply => game_state:ply(State),
         clocks => game_state:clocks(State),
         status => game_status:started_from(game_state:status(State))}),
     {ok, [game_started_v1:to_map(Event)]}.
+
+%% The repetition history begins here: the position a game starts from is one a
+%% repetition can return to. The rules engine is the only thing that can hash a
+%% position, so the start slice asks it — a game that cannot be hashed does not
+%% start, which is the right failure and only happens if the NIF is missing.
+position_hash(Position) ->
+    case mcl_chess_rules:position_hash(Position) of
+        {error, invalid_fen} -> error({invalid_start_position, Position});
+        Hash -> Hash
+    end.
 
 %% @doc Start the game and hand the caller the state it produced.
 -spec dispatch(start_game_v1:t()) ->

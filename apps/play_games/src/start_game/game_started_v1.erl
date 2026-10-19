@@ -19,6 +19,10 @@
     white_node_id :: binary(),
     black_node_id :: binary(),
     position      :: binary(),
+    %% The hash of the position the game starts from. Recorded here, not
+    %% derived later, because a repetition can return to this position and a
+    %% fivefold count that began at the first move would miss one.
+    position_hash :: non_neg_integer(),
     to_move       :: binary(),
     ply           :: non_neg_integer(),
     clocks        :: map(),
@@ -39,14 +43,15 @@ event_type() -> <<"game_started_v1">>.
 %% for clock arithmetic.
 -spec new(map()) -> {ok, t()} | {error, term()}.
 new(#{game_id := GameId, white_node_id := White, black_node_id := Black,
-      position := Position, to_move := ToMove, ply := Ply, clocks := Clocks,
-      status := Status} = Params)
+      position := Position, position_hash := Hash, to_move := ToMove, ply := Ply,
+      clocks := Clocks, status := Status} = Params)
         when is_binary(GameId), is_binary(White), is_binary(Black),
-             White =/= <<>>, Black =/= <<>>, is_map(Clocks) ->
+             White =/= <<>>, Black =/= <<>>, is_map(Clocks), is_integer(Hash) ->
     {ok, #game_started{game_id = GameId,
                        white_node_id = White,
                        black_node_id = Black,
                        position = Position,
+                       position_hash = Hash,
                        to_move = ToMove,
                        ply = Ply,
                        clocks = Clocks,
@@ -63,6 +68,7 @@ to_map(#game_started{} = Event) ->
       white_node_id => Event#game_started.white_node_id,
       black_node_id => Event#game_started.black_node_id,
       position => Event#game_started.position,
+      position_hash => Event#game_started.position_hash,
       to_move => Event#game_started.to_move,
       ply => Event#game_started.ply,
       clocks => Event#game_started.clocks,
@@ -71,12 +77,13 @@ to_map(#game_started{} = Event) ->
 
 -spec from_map(map()) -> {ok, t()} | {error, term()}.
 from_map(#{game_id := GameId, white_node_id := White, black_node_id := Black,
-           position := Position, to_move := ToMove, ply := Ply,
-           clocks := Clocks, status := Status} = Map) ->
+           position := Position, position_hash := Hash, to_move := ToMove,
+           ply := Ply, clocks := Clocks, status := Status} = Map) ->
     {ok, #game_started{game_id = GameId,
                        white_node_id = White,
                        black_node_id = Black,
                        position = Position,
+                       position_hash = Hash,
                        to_move = ToMove,
                        ply = Ply,
                        clocks = Clocks,

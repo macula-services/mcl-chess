@@ -14,7 +14,7 @@
 %%% `e8g8', `e8c8') or the Chess960 way (`e1h1', `e1a1'); both are accepted.
 -module(mcl_chess_rules).
 
--export([validate_move/2, apply_move/2, status/2]).
+-export([validate_move/2, apply_move/2, status/2, position_hash/1]).
 
 -on_load(init/0).
 
@@ -32,23 +32,41 @@ validate_move(_Fen, _Uci) ->
 
 %% @doc Play this UCI move.
 %%
-%% Returns the position after the move as a FEN and the FIDE Zobrist hash of
-%% it: two positions hash the same when the same moves are available from
-%% them, which is the definition threefold repetition is counted with.
+%% Returns the position after the move as a FEN, the FIDE Zobrist hash of it,
+%% and the halfmove-reset flag: 1 when the move reset the counter (a pawn moved,
+%% or something was captured), 0 when it did not. Two positions hash the same when the same moves are available
+%% from them, which is the definition repetition is counted with.
+%%
+%% The third element is why the referee keeps its own counter: the library's
+%% counter is a byte clamped to 100, and the 75 move rule fires at 150, so
+%% `status/2' is handed the referee's count and this is the one bit it needs to
+%% keep it.
 -spec apply_move(binary(), binary()) ->
-          {ok, binary(), non_neg_integer()} | {error, move_error()}.
+          {ok, binary(), non_neg_integer(), 0 | 1} | {error, move_error()}.
 apply_move(_Fen, _Uci) ->
+    ?NOT_LOADED.
+
+%% @doc The Zobrist hash of a position, without playing a move into it.
+%%
+%% The aggregate records the hash a game starts from, because a repetition can
+%% return to it and a count that began at the first move would miss one.
+-spec position_hash(binary()) -> non_neg_integer() | {error, invalid_fen}.
+position_hash(_Fen) ->
     ?NOT_LOADED.
 
 %% @doc The verdict on this position.
 %%
-%% `HalfmoveClock' is the referee's own count rather than the FEN's field. No
-%% v1 verdict depends on it: a draw by the move counter is a claim, and claims
-%% are v2 (mcl-chess#1). It is here because the Design Gate fixed the signature
-%% and the v2 claim reads it.
+%% `HalfmoveClock' is the referee's own count rather than the FEN's field: the
+%% library's field is a byte clamped to 100 and the 75 move rule fires at 150.
+%% Reaching 150 ends the game as a draw (`seventy_five_moves'), unless the move
+%% that got there was checkmate, which wins. A position that is dead on its own
+%% terms reports its own reason instead.
+%%
+%% The fivefold draw is NOT here: it is not a function of one position, so the
+%% aggregate counts it over the hashes its events recorded.
 -spec status(binary(), non_neg_integer()) ->
           active | checkmate | stalemate | insufficient_material
-              | {error, invalid_fen}.
+              | seventy_five_moves | {error, invalid_fen}.
 status(_Fen, _HalfmoveClock) ->
     ?NOT_LOADED.
 

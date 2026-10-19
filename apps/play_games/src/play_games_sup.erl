@@ -23,10 +23,17 @@ init([]) ->
            %% second claim into a start, and it must be listening before any
            %% emitter is (the emitters are the observable half, not the rule).
            handler(on_seat_claimed_v1_maybe_start_game),
+           %% The end policy sits beside the start policy and for the same
+           %% reason: the rule that a terminal position ends the game must be
+           %% listening before the emitters that publish the move are.
+           handler(on_move_played_v1_maybe_end_game),
            handler(emit_game_initiated_v1_to_mesh),
            handler(emit_seat_claimed_v1_to_mesh),
            handler(emit_seat_refused_v1_to_mesh),
            handler(emit_game_started_v1_to_mesh),
+           handler(emit_move_played_v1_to_mesh),
+           handler(emit_move_refused_v1_to_mesh),
+           handler(emit_game_ended_v1_to_mesh),
            handler(emit_game_archived_v1_to_mesh)]}}.
 
 handler(Module) ->
