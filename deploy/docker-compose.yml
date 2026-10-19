@@ -1,4 +1,4 @@
-# mcl-chess — how to run this service.
+# mcl-chess: how to run this service.
 #
 # Runnable as-is. It carries what the SERVICE knows about itself: its image, its
 # port, the environment variables its own code reads, and its health check.

@@ -39,7 +39,7 @@
         %% absent. Uncomment to override the defaults, rename the alert fact
         %% topic, or name the guardian tier that gates `set_limits' (it is
         %% advertised only when this block names it; `get_limits' is always
-        %% advertised; realm_did is the realm's Ed25519 DID, 32 bytes — NOT
+        %% advertised; realm_did is the realm's Ed25519 DID, 32 bytes, NOT
         %% the 64-hex RealmId identifier above).
         %% {inbound_guard, #{
         %%     default_limits => #{max_payload_external_size => 65536,
