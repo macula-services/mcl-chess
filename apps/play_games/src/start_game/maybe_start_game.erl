@@ -66,7 +66,7 @@ events(State, Cmd) ->
 
 %% The repetition history begins here: the position a game starts from is one a
 %% repetition can return to. The rules engine is the only thing that can hash a
-%% position, so the start slice asks it — a game that cannot be hashed does not
+%% position, so the start slice asks it: a game that cannot be hashed does not
 %% start, which is the right failure and only happens if the NIF is missing.
 position_hash(Position) ->
     case mcl_chess_rules:position_hash(Position) of

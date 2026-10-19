@@ -1,8 +1,8 @@
 %% @doc The end event: the game has an outcome, and the clock has stopped.
 %%
 %% ONE EVENT FOR EVERY WAY A GAME ENDS, because the event type is the
-%% subscription key (mcl-chess#1, design of record). The desks differ — a
-%% resignation, a terminal position, a flag — and the record does not: `outcome'
+%% subscription key (mcl-chess#1, design of record). The desks differ (a
+%% resignation, a terminal position, a flag) and the record does not: `outcome'
 %% says who won, `reason' says why.
 %%
 %% Outcome vocabulary (closed set): `winner' (reason `checkmate'), `draw'

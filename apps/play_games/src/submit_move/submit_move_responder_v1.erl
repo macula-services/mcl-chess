@@ -5,8 +5,8 @@
 %% claim; there is no way to name a player in the body.
 %%
 %% The request shape: #{<<"game_id">> => GameId, <<"move">> => <<"e2e4">>}.
-%% The reply is the game state the move produced — the position after it, whose
-%% turn it is now, the clocks, the ply and the count the end rules read — or
+%% The reply is the game state the move produced (the position after it, whose
+%% turn it is now, the clocks, the ply and the count the end rules read), or
 %% #{<<"error">> => R}.
 -module(submit_move_responder_v1).
 

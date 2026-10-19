@@ -1,8 +1,8 @@
 %% @doc The refusal event: a seat holder tried something the rules forbid.
 %%
 %% This is the evidence class the design of record splits out (mcl-chess#1):
-%% "this caller was in the game and tried a foul move" is worth recording — a
-%% future reputation division reads attempted foul play from the transcript —
+%% "this caller was in the game and tried a foul move" is worth recording (a
+%% future reputation division reads attempted foul play from the transcript),
 %% while "this caller never had standing" is answered on the wire and records
 %% nothing. It changes no game state: the position is the one the game already
 %% stood in, `fen_after' is echoed rather than advanced.

@@ -15,7 +15,7 @@
 %% - the caller can never be the wrong player by payload: the caller IS the
 %%   node macula verified, and the colour it holds is read from the seats map
 %%
-%% A refusal is still a refusal to the caller — `submit_move_api' answers
+%% A refusal is still a refusal to the caller: `submit_move_api' answers
 %% `{error, Reason}' whether the refusal was recorded or not. The event is the
 %% evidence, the answer is the answer.
 %%

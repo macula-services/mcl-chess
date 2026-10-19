@@ -2,8 +2,8 @@
 %%
 %% It is dispatched by a policy (`on_move_played_v1_maybe_end_game' today, the
 %% clock's flag policy in WP6) or by the resign desk, so no stranger can end a
-%% game they are not playing. The command carries the DECISION — outcome,
-%% winner and reason — and the handler builds the event from the aggregate's own
+%% game they are not playing. The command carries the DECISION (outcome, winner
+%% and reason) and the handler builds the event from the aggregate's own
 %% state, so the position, the ply and the clocks in the record are the game's,
 %% not a caller's.
 -module(end_game_v1).
