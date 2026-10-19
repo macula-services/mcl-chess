@@ -21,6 +21,15 @@
 # backend and the build stays green, then barrel_docdb's default snappy blob
 # compression fails at db_open: "The specified blob compression type Snappy is
 # not available."
+#
+# THE CHESS RULES NIF BUILDS HERE, IN THIS STAGE, AND NEEDS NO STAGE OF ITS
+# OWN. `native/mcl_chess_rules` is a Rustler cdylib over cozy-chess; the
+# umbrella's compile pre_hook (`rebar.config`) runs `scripts/build-nif.sh`,
+# which calls the cargo this image already carries and copies the .so into
+# `apps/play_games/priv/lib`. relx then ships it as
+# `lib/play_games-<vsn>/priv/lib/libmcl_chess_rules.so`, which is where the
+# BEAM module loads it from. A green build therefore proves the NIF compiled;
+# the service tests prove it loaded.
 FROM ghcr.io/macula-io/macula-ci-otp:20260928-1800@sha256:7318a443021f8a4ceb7ad56b0ab21f52db95db92996ea0f0897a1eff0b678832 AS builder
 
 # ⚠ THE OTP RELEASE, ASSERTED HERE, because an image's tag need not name one.
@@ -45,6 +54,13 @@ RUN rebar3 get-deps
 
 COPY config ./config
 COPY apps ./apps
+# The rules NIF's crate and the script that builds it. BOTH are needed before
+# the release step, because compiling runs the pre_hook: without them the build
+# fails here with "scripts/build-nif.sh: No such file or directory", which is
+# the honest failure but a wasted image build when it could have been caught by
+# reading this file.
+COPY scripts ./scripts
+COPY native ./native
 RUN rebar3 as prod release
 
 FROM ghcr.io/macula-io/macula-pq-runtime:20260928-1800@sha256:a1d18c6a6a22d8d7fba6086785c683bd113828e16fdfde147d96ae67d2c6892d

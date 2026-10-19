@@ -46,3 +46,8 @@ jobs:
       - run: rebar3 lint
       - run: rebar3 eunit
       - run: rebar3 dialyzer
+      # The rules engine's perft cross-checks. `rebar3 eunit` above builds the
+      # NIF (the compile pre_hook), so a broken build fails there; this runs the
+      # tests inside it. Lint for the crate (fmt, clippy) is scripts/lint-nif.sh,
+      # run locally: this image carries cargo and rustc, not those components.
+      - run: ./scripts/test-nif.sh

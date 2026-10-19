@@ -20,3 +20,9 @@ rebar.lock
 # The read model's system databases and the local store, when a run leaves
 # them in the working directory.
 /data/
+
+# The chess rules NIF: cargo's output, and the .so installed into the app.
+# Both are built by scripts/build-nif.sh; Cargo.lock IS committed.
+native/mcl_chess_rules/target/
+apps/*/priv/lib/*.so
+apps/*/priv/lib/*.dylib

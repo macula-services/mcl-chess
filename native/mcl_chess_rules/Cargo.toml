@@ -1,0 +1,14 @@
+[package]
+name = "mcl_chess_rules"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+description = "Rustler NIF over cozy-chess backing mcl-chess"
+
+[lib]
+name = "mcl_chess_rules"
+crate-type = ["cdylib"]
+
+[dependencies]
+cozy-chess = "0.3.4"
+rustler = "0.34"
