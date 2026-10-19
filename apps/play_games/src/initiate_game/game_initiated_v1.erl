@@ -38,9 +38,11 @@ event_type() -> <<"game_initiated_v1">>.
 
 %% @doc Build the event from the command's parameters.
 %%
-%% The clocks start at the time control, and both seats start empty unless a
-%% matchmaker pre-assigned them. `AtMs' is the service's own clock: the
-%% sender's `sent_at' is informational and never used for clock arithmetic.
+%% The clocks start at the time control, and both seats start empty unless the
+%% command pre-assigned them. Only the future matchmaker may pre-assign, and
+%% that path never comes off the wire: the responder does not read `seats'.
+%% `AtMs' is the service's own clock: the sender's `sent_at' is informational
+%% and never used for clock arithmetic.
 -spec new(map()) -> {ok, t()} | {error, term()}.
 new(#{game_id := GameId, time_control := {Initial, Increment}, initiator := Initiator}
     = Params) when is_binary(GameId), is_binary(Initiator) ->

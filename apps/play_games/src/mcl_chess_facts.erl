@@ -1,7 +1,7 @@
 %% @doc mcl-chess's public contract on the mesh: the facts a game publishes.
 %%
-%%   game_initiated_v1 on `<realm>/mcl-chess/chess/game/game_initiated/v1'
-%%   game_archived_v1  on `<realm>/mcl-chess/chess/game/game_archived/v1'
+%%   game_initiated_v1 on `<realm>/mcl-chess/chess/game/game_initiated_v1'
+%%   game_archived_v1  on `<realm>/mcl-chess/chess/game/game_archived_v1'
 %%
 %% One topic per fact kind; the game id is in the payload, never in the topic
 %% name, so a consumer subscribes once and filters. The domain event stays

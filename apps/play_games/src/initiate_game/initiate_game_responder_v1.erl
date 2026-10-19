@@ -4,10 +4,16 @@
 %% id macula verified on the call, which arrives platform-injected as
 %% `caller'; a body that names someone else is not read at all.
 %%
+%% CONSENT IS A SEAT CLAIM, SO THE WIRE CANNOT SEAT ANYONE. A body that names
+%% node ids under `seats' is not read: every call over the wire gives two
+%% empty seats. Seating two agents who never agreed, and then letting the
+%% clock forfeit them, is the harm this closes. Pre-assignment is the future
+%% matchmaker's own path through the command, and it will need its own
+%% authorization when it is built.
+%%
 %% The request shape, binary keys because it came off the wire:
 %%
-%%   #{<<"time_control">> => #{<<"initial_ms">> => N, <<"increment_ms">> => M},
-%%     <<"seats">> => #{<<"white">> => NodeId, <<"black">> => NodeId}}  % optional
+%%   #{<<"time_control">> => #{<<"initial_ms">> => N, <<"increment_ms">> => M}}
 %%
 %% The reply is the game state the event produced, or #{<<"error">> => R}.
 -module(initiate_game_responder_v1).
@@ -36,21 +42,13 @@ initiated({error, Reason}) -> #{<<"error">> => reason(Reason)}.
 %% this is the verified node id and not a claim.
 request(Payload) ->
     #{initiator => maps:get(<<"caller">>, Payload, <<>>),
-      time_control => time_control(Payload),
-      seats => seats(Payload)}.
+      time_control => time_control(Payload)}.
 
 time_control(#{<<"time_control">> := #{<<"initial_ms">> := Initial,
                                        <<"increment_ms">> := Increment}}) ->
     {Initial, Increment};
 time_control(_) ->
     undefined.
-
-%% Pre-assigned seats are the future matchmaker's path; a caller that names
-%% none gets two empty seats.
-seats(#{<<"seats">> := #{<<"white">> := White, <<"black">> := Black}}) ->
-    #{white => White, black => Black};
-seats(_) ->
-    #{white => <<>>, black => <<>>}.
 
 %% Atoms are a service-internal detail; the wire carries text.
 reason(Reason) when is_atom(Reason) -> atom_to_binary(Reason, utf8);

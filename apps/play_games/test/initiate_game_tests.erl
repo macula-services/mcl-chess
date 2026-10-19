@@ -9,6 +9,8 @@
 -include_lib("eunit/include/eunit.hrl").
 
 -define(INITIATOR, <<"a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90">>).
+-define(STRANGER_A, <<"b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90a1">>).
+-define(STRANGER_B, <<"c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2">>).
 
 store_test_() ->
     {setup, fun play_games_test_store:start/0, fun play_games_test_store:stop/1,
@@ -16,7 +18,8 @@ store_test_() ->
       {timeout, 60, fun the_caller_gets_the_state_the_event_produced/0},
       {timeout, 60, fun the_game_id_is_minted_in_the_store_contract/0},
       {timeout, 60, fun two_games_get_two_ids/0},
-      {timeout, 60, fun an_initiated_game_cannot_be_initiated_again/0}]}.
+      {timeout, 60, fun an_initiated_game_cannot_be_initiated_again/0},
+      {timeout, 60, fun a_caller_cannot_preassign_the_seats/0}]}.
 
 pure_test_() ->
     [fun a_control_shorter_than_a_second_is_refused/0,
@@ -60,6 +63,20 @@ an_initiated_game_cannot_be_initiated_again() ->
                                        time_control => {60000, 0},
                                        initiator => ?INITIATOR}),
     ?assertEqual({error, already_initiated}, maybe_initiate_game:dispatch(Cmd)).
+
+%% Consent is a seat claim, so a body that names two node ids has not asked
+%% them and must not seat them: the born game has two empty seats whatever
+%% the caller sent. Pre-assignment is the future matchmaker's path, and it
+%% will need its own authorization when it is built.
+a_caller_cannot_preassign_the_seats() ->
+    Payload = #{<<"caller">> => ?INITIATOR,
+                <<"time_control">> => #{<<"initial_ms">> => 60000,
+                                        <<"increment_ms">> => 0},
+                <<"seats">> => #{<<"white">> => ?STRANGER_A,
+                                 <<"black">> => ?STRANGER_B}},
+    {reply, View, _State} = initiate_game_responder_v1:handle_request(Payload, undefined),
+    ?assertEqual(#{<<"white">> => <<>>, <<"black">> => <<>>},
+                 maps:get(<<"seats">>, View)).
 
 a_control_shorter_than_a_second_is_refused() ->
     ?assertEqual({error, initial_ms_out_of_range},

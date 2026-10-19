@@ -45,12 +45,9 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Seats, the clock, the rules NIF, moves and retention are WP3 to WP6, so a
   game can currently only be initiated and withdrawn before it starts. That
   is what a walking skeleton is.
+- `initiate_game` seats nobody: the responder does not read `seats`, so every
+  call over the wire gives two empty seats. Seating is a consent claim, and
+  pre-assignment belongs to the future matchmaker, which will need its own
+  authorization.
 - No fleet definition yet: the service is not deployed on a box, and its
   realm grants are an operator step (WP8).
-- `Containerfile` building the release in a digest-pinned builder image and
-  running it on the matching digest-pinned runtime image.
-- `deploy/docker-compose.yml`, the service's own run contract.
-- CI: `lint-and-test` (lint, eunit, dialyzer) on every push to `main` and
-  every pull request. `build-and-push` to the registry: a push to `main`
-  publishes `:latest`, and a `v*` tag publishes its own version and nothing
-  else.

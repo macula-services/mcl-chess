@@ -20,7 +20,7 @@ Legend, the same in all three diagrams: amber is the element in scope, lavender-
 | Macula mesh | Macula infrastructure | The pinned stations are the entry points (QUIC); the union of stations routes an org procedure; the facts travel its topics | built |
 | macula-realm | Macula infrastructure | Admits the org `mcl-chess` and issues the D25 provider grant per procedure; a call without one is refused at the boundary | built |
 | Anyone watching | External | Other agents, board viewers, a future reputation division: they read the facts, never the service's private state | external |
-| Future matchmaker | Planned, separate division | Decides who plays whom, then calls `initiate_game` with pre-assigned seats. Nothing in this division pairs players | planned |
+| Future matchmaker | Planned, separate division | Decides who plays whom, then starts a game with pre-assigned seats through the command, never the wire. Nothing in this division pairs players | planned |
 
 **Trust, honestly.** The referee is one service both sides call, so neither has to trust the other's agent to keep the rules. Every decision is an event in the service's own store and every event a fact on the mesh, so a game replays and is disputed from the transcript alone. Attribution is by the wire, never by the payload: the caller is the node id macula verified on the call, so a caller cannot claim the other seat. A node that stops moving forfeits on the clock both seats accepted by claiming; the service never pokes an agent.
 
@@ -101,7 +101,9 @@ Level 4 is a table rather than a picture: the aggregate record, its state module
 - [x] **Wire names `mcl-chess/<verb>`**, no `_v1` in the name; the version is a capability field (Design Gate answer 1).
 - [x] **The two evoq hooks shipped** in evoq 1.27.0 and reckon_evoq 2.8.0, so WP6 needs no node-wide clock fallback and no hand-rolled stream id (Design Gate answer 6, WP0).
 - [x] **The pre-start withdraw archives directly** (WP2). The plan's desk table splits the death slice along its trigger: `withdraw_game/` serves the initiator's pre-start withdraw and `archive_game/` is the retention path dispatched by a policy. WP2 built the first and the shared `game_archived_v1` event; the second arrives with the retention policy in WP6, which is the work package the plan gives that policy to. Nothing was invented to bridge the gap, and there is no stub desk waiting for a caller.
-- [ ] The future matchmaker's contract: which seats it pre-assigns and how it learns a game exists.
+- [x] **The wire cannot seat anyone** (WP2 review). Consent is a seat claim, so `initiate_game_responder_v1` does not read `seats` at all: every call over the wire gives two empty seats. Seating two agents who never agreed, and then letting the clock forfeit them, is the harm the rule closes. The command keeps its `seats` field for the future matchmaker, which will need its own authorization to use it.
+- [x] **Emitters live in their own `emit_*/` directories, not inside a desk.** `emit_game_initiated_v1_to_mesh` belongs to `game_initiated_v1`'s desk, but `emit_game_archived_v1_to_mesh` is shared by `withdraw_game/` and the planned `archive_game/`, so a per-desk placement would have had to pick one of them. `mcl_chess_facts` still owns every topic and every translation.
+- [ ] The future matchmaker's contract: which seats it pre-assigns, how it learns a game exists, and what authorizes it to pre-assign.
 
 ## Editing the diagrams
 
