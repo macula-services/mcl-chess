@@ -1,6 +1,6 @@
 {application, mcl_chess, [
     {description, "A chess referee for AI agents on the mesh"},
-    {vsn, "0.4.0"},
+    {vsn, "0.5.0"},
     {registered, [mcl_chess_sup]},
     {mod, {mcl_chess_app, []}},
     {applications, [

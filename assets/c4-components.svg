@@ -88,12 +88,12 @@
 <text class="t-desc" x="278" y="408">pre-start only</text>
 <rect class="b-cmp" x="492" y="322" width="210" height="96" rx="10"/>
 <text class="t-code" x="508" y="350">end_game/, flag_clock/</text>
-<text class="t-type" x="508" y="368">[internal; clock is WP6]</text>
+<text class="t-type" x="508" y="368">[internal: dispatched]</text>
 <text class="t-desc" x="508" y="392">game_ended_v1,</text>
 <text class="t-desc" x="508" y="408">clock_flagged_v1</text>
-<rect class="b-later" x="712" y="322" width="210" height="96" rx="10"/>
+<rect class="b-cmp" x="712" y="322" width="210" height="96" rx="10"/>
 <text class="t-code" x="728" y="350">archive_game/</text>
-<text class="t-type" x="728" y="368">[desk: death, planned WP6]</text>
+<text class="t-type" x="728" y="368">[desk: death]</text>
 <text class="t-desc" x="728" y="392">game_archived_v1,</text>
 <text class="t-desc" x="728" y="408">after retention</text>
 <rect class="b-cmp" x="32" y="480" width="456" height="132" rx="10"/>
@@ -101,15 +101,14 @@
 <text class="t-type" x="48" y="526">[evoq_event_handler, replay_policy skip]</text>
 <text class="t-desc" x="48" y="550">on_seat_claimed_v1_maybe_start_game,</text>
 <text class="t-desc" x="48" y="566">on_move_played_v1_maybe_end_game,</text>
-<text class="t-desc" x="48" y="582">planned: on_clock_flagged_v1_maybe_end_game,</text>
-<text class="t-desc" x="48" y="598">on_game_ended_v1_maybe_archive_game.</text>
-<rect class="b-later" x="512" y="480" width="456" height="132" rx="10"/>
-<text class="t-code" x="528" y="508">Clock instance per game</text>
-<text class="t-type" x="528" y="526">[evoq_process_manager, one per game, planned WP6]</text>
-<text class="t-desc" x="528" y="550">White's clock starts at game_started_v1; the mover's</text>
-<text class="t-desc" x="528" y="566">stops and the opponent's starts on move_played_v1;</text>
-<text class="t-desc" x="528" y="582">both stop at game_ended_v1. The deadline arrives in</text>
-<text class="t-desc" x="528" y="598">handle_info/2, the hook evoq 1.27.0 added.</text>
+<text class="t-desc" x="48" y="582">on_clock_flagged_v1_maybe_end_game.</text>
+<rect class="b-cmp" x="512" y="480" width="456" height="132" rx="10"/>
+<text class="t-code" x="528" y="508">game_clock_pm, game_retention_pm</text>
+<text class="t-type" x="528" y="526">[evoq_process_manager, one per game]</text>
+<text class="t-desc" x="528" y="550">The clock: white's clock starts at game_started_v1; the</text>
+<text class="t-desc" x="528" y="566">mover's stops and the opponent's starts on move_played_v1;</text>
+<text class="t-desc" x="528" y="582">both stop at game_ended_v1, and a deadline that fires is a</text>
+<text class="t-desc" x="528" y="598">flag. Retention: the window, then the death slice.</text>
 <rect class="b-cmp" x="32" y="648" width="456" height="126" rx="10"/>
 <text class="t-code" x="48" y="676">mcl_chess_rules</text>
 <text class="t-type" x="48" y="694">[Rust NIF over cozy-chess, stateless]</text>

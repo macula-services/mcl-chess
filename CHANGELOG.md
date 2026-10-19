@@ -5,7 +5,59 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.5.0] - 2026-10-20
+
+### Added
+
+- **The clock (WP6):** one `evoq_process_manager` instance per game schedules
+  the deadline for the side to move and, when it fires, dispatches the internal
+  `flag_clock_v1`. The desk records `clock_flagged_v1` (who ran out, the clocks,
+  the status) and publishes it; `on_clock_flagged_v1_maybe_end_game` dispatches
+  `end_game_v1`; the end is a forfeit, `clock_flag`, with the opponent named
+  from the record. The deadline is recomputed from each event's own `at_ms` and
+  the clocks it carries, never from a wall clock, so a replay rebuilds the same
+  deadline and a deadline that has already passed fires once, at boot.
+- **A move on an overdrawn clock is refused** (`time_expired`), never clamped to
+  zero and played, and the attempt is recorded as `move_refused_v1` under the
+  same ten-per-player cap (Design Gate answer 4). The move desk and the flag
+  desk ask the same arithmetic, `game_state:expired/3`.
+- **A flag re-judges the position before it forfeits.** `end_game` asks
+  `game_verdict` when the reason is `clock_flag`, so a position the rules had
+  already decided keeps its own verdict: a game left mated by a crash ends
+  `checkmate`, not `clock_flag`. A resignation and every other end keep the
+  decision they were sent with.
+- **The death slice and the retention window (WP6):** `archive_game_v1`, and
+  `game_retention_pm`, one instance per ended game, which archives it after the
+  window. The window is `play_games`' `game_retention_ms`, 24 hours by default
+  and set in `config/sys.config.src`; an ended game replayed after a longer
+  shutdown is archived from its own `at_ms`. `game_archived_v1` keeps the reason
+  `retention`, so a reader tells it from the pre-start `withdrawn`.
+- **The two sequences a crash can leave half done are finished.** A claim that
+  filled the second seat with no start, and a flag with no end, are caught up by
+  the game's clock instance when it is rebuilt from the log: its folded state
+  shows the gap, and a delayed self-message dispatches the missing
+  `start_game_v1` or `end_game_v1`. The delay keeps a healthy node from
+  double-dispatching, and the desks' guards make a late command a refusal rather
+  than a second event.
+- **The facts contract grew one fact:** `clock_flagged_v1` on
+  `<realm>/mcl-chess/chess/game/clock_flagged_v1`, carrying `game_id`,
+  `player_node_id`, `clocks`, `status` and `at_ms`.
+- **The read model gained `flagged_node_id`**, applied to an existing file by an
+  idempotent migration, and a projection for `clock_flagged_v1`.
+- **`play_games_pm_registrar`** registers the division's process managers with
+  evoq's PM router and registers them again if the router restarts.
+
+### Notes
+
+- The retention window is a decision, not a placeholder: 24 hours, configurable
+  (the design of record's open question 2).
+- `end_game_v1`, `flag_clock_v1`, `start_game_v1` and `archive_game_v1` accept
+  their payload map as well as their record in `validate/1`, because evoq's own
+  router validates the payload when a process manager dispatches the command.
+
+## [0.4.0] - 2026-10-19
+
+### Added
 
 ### Added
 
@@ -110,10 +162,9 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Notes
 
-- The clock and retention are WP6, so the clocks in a move event are charged by
-  the move desk from the aggregate's own timestamps, but nothing yet fires when
-  a clock runs out: a game ends by mate, a dead position, the 75 move rule,
-  fivefold repetition or a resignation.
+- In 0.4.0 the clock and retention were still WP6: the clocks in a move event
+  were charged by the move desk, but nothing fired when a clock ran out. 0.5.0
+  adds both.
 - A draw by the 50 move rule or by threefold repetition is a claim, and claims
   are v2 (mcl-chess#1). The automatic draws (75 moves, fivefold) are v1, per
   the operator's decision on mcl-chess#4.

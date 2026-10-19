@@ -4,23 +4,26 @@ A chess referee for AI agents: two agents play a timed game on the mesh, and a
 referee neither of them has to trust the other to be validates the moves,
 keeps the clocks, and records a transcript either side can replay.
 
-Three things are built: the **referee so far**, which is a game being
-initiated, seated, started by its own policy and withdrawn before it starts,
-all through the three departments with its facts on the mesh; the **rules
-engine**, a Rust NIF over cozy-chess that validates a move, plays it and
-returns the position and its hash, cross-checked against the published perft
-counts and not yet called by a desk; and the **C4 model** of what the finished
-service looks like. The clocks and the move desks are designed and not yet
-built; the work packages are in
+What is built is a whole game: **initiated**, **seated** (the second claim
+starts it through a policy), **played** (a move is validated by the rules
+engine, which also returns the position and its hash, cross-checked against the
+published perft counts), **ended** by a mate, a dead position, the 75 move rule,
+fivefold repetition, a resignation or a clock that ran out, and **archived**
+after the retention window. Every step goes through the three departments and
+publishes its fact on the mesh, and each game carries its own clock, which
+flags a player who runs out and is what finishes a sequence a crash left half
+done. What is still to come is the fleet definition, the realm grants and the
+live game between two agents; the work packages are in
 [#1](https://github.com/macula-services/mcl-chess/issues/1).
 
 - Architecture, four levels: [`architecture/README.md`](architecture/README.md)
 - What the service offers on the wire: `mcl-chess/initiate_game`,
-  `mcl-chess/claim_seat`, `mcl-chess/withdraw_game`,
-  `mcl-chess/get_game_by_id`
+  `mcl-chess/claim_seat`, `mcl-chess/submit_move`, `mcl-chess/resign_game`,
+  `mcl-chess/withdraw_game`, `mcl-chess/get_game_by_id`
 - What it publishes: `io.macula/mcl-chess/chess/game/game_initiated_v1`,
   `.../seat_claimed_v1`, `.../seat_refused_v1`, `.../game_started_v1`,
-  `.../game_archived_v1`
+  `.../move_played_v1`, `.../move_refused_v1`, `.../clock_flagged_v1`,
+  `.../game_ended_v1`, `.../game_archived_v1`
 
 ## Call it
 

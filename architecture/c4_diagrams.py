@@ -238,20 +238,19 @@ def components():
     d.box("b-cmp", 262, 322, 210, 96, "withdraw_game/", "[desk: death]",
           ["game_archived_v1,", "pre-start only"], code=True)
     d.box("b-cmp", 492, 322, 210, 96, "end_game/, flag_clock/",
-          "[internal; clock is WP6]",
+          "[internal: dispatched]",
           ["game_ended_v1,", "clock_flagged_v1"], code=True)
-    d.box("b-later", 712, 322, 210, 96, "archive_game/", "[desk: death, planned WP6]",
+    d.box("b-cmp", 712, 322, 210, 96, "archive_game/", "[desk: death]",
           ["game_archived_v1,", "after retention"], code=True)
     d.box("b-cmp", 32, 480, 456, 132, "on_* policies", "[evoq_event_handler, replay_policy skip]",
           ["on_seat_claimed_v1_maybe_start_game,",
            "on_move_played_v1_maybe_end_game,",
-           "planned: on_clock_flagged_v1_maybe_end_game,",
-           "on_game_ended_v1_maybe_archive_game."], code=True)
-    d.box("b-later", 512, 480, 456, 132, "Clock instance per game", "[evoq_process_manager, one per game, planned WP6]",
-          ["White's clock starts at game_started_v1; the mover's",
-           "stops and the opponent's starts on move_played_v1;",
-           "both stop at game_ended_v1. The deadline arrives in",
-           "handle_info/2, the hook evoq 1.27.0 added."], code=True)
+           "on_clock_flagged_v1_maybe_end_game."], code=True)
+    d.box("b-cmp", 512, 480, 456, 132, "game_clock_pm, game_retention_pm", "[evoq_process_manager, one per game]",
+          ["The clock: white's clock starts at game_started_v1; the",
+           "mover's stops and the opponent's starts on move_played_v1;",
+           "both stop at game_ended_v1, and a deadline that fires is a",
+           "flag. Retention: the window, then the death slice."], code=True)
     d.box("b-cmp", 32, 648, 456, 126, "mcl_chess_rules", "[Rust NIF over cozy-chess, stateless]",
           ["validate_move(Fen, Uci), apply_move(Fen, Uci) -> Fen', the Zobrist",
            "hash and the halfmove-reset flag, position_hash(Fen), status(Fen,",
