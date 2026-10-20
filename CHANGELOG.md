@@ -5,6 +5,20 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0] - 2026-10-20
+
+### Added
+
+- **A started game says when it started (mcl-chess#3, WP8):** the `games` row
+  carries `started_at`, written by `game_started_v1`'s projection from the
+  event's own `at_ms` (the reading the first deadline is set from), selected by
+  `get_game_by_id` and answered as `started_at` beside `initiated_at`. The
+  schema contract holds the column, its place in the desk's destructuring and
+  its value in the whole game flow; the seats-and-start suite asserts the desk
+  answers with the moment the store recorded, not a moment of the reader's.
+  No `migrations/0` entry: the column ships in the DDL the table is created
+  with, because no box held a read-model file before it.
+
 ## [0.6.0] - 2026-10-20
 
 ### Added
