@@ -40,7 +40,13 @@ import { join } from "node:path";
 const PACKAGE = process.env.MACULA_MCP_PACKAGE ?? "@macula-io/mcp@0.48.0";
 const TIMEOUT_MS = Number(process.env.LIVE_GAME_TIMEOUT_MS ?? 180000);
 const ORG = "mcl-chess";
-const FACT_PREFIX = `${ORG}/chess/game`;
+/// A fact's topic is a five-segment `app_fact`: realm, org, app, domain, name
+/// with the version on the name, so the referee's facts are
+/// `io.macula/mcl-chess/chess/game/<event>_v1`. The realm segment is part of
+/// the topic, not an envelope around it: a subscriber that leaves it out hears
+/// nothing at all and cannot tell that from a game that never started.
+const REALM_NAME = process.env.LIVE_GAME_REALM ?? "io.macula";
+const FACT_PREFIX = `${REALM_NAME}/${ORG}/chess/game`;
 const TIME_CONTROL = { initial_ms: 60000, increment_ms: 0 };
 
 // Fool's mate, as UCI: white f3, black e5, white g4, black Qh4#.
