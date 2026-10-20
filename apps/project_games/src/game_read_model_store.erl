@@ -86,6 +86,7 @@ migrations() ->
      {"end_reason", "ALTER TABLE games ADD COLUMN end_reason TEXT NOT NULL DEFAULT ''"},
      {"winner_node_id", "ALTER TABLE games ADD COLUMN winner_node_id TEXT NOT NULL DEFAULT ''"},
      {"flagged_node_id", "ALTER TABLE games ADD COLUMN flagged_node_id TEXT NOT NULL DEFAULT ''"},
+     {"started_at", "ALTER TABLE games ADD COLUMN started_at INTEGER"},
      {"ended_at", "ALTER TABLE games ADD COLUMN ended_at INTEGER"}].
 
 -spec start_link(string()) -> {ok, pid()} | {error, term()}.

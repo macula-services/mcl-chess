@@ -16,8 +16,12 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   schema contract holds the column, its place in the desk's destructuring and
   its value in the whole game flow; the seats-and-start suite asserts the desk
   answers with the moment the store recorded, not a moment of the reader's.
-  No `migrations/0` entry: the column ships in the DDL the table is created
-  with, because no box held a read-model file before it.
+  `started_at` is also declared in `migrations/0` and added with an idempotent
+  `ALTER TABLE` when a file built before it exists, because such a file can
+  (`deploy/docker-compose.yml` runs against a persistent data directory):
+  without it every `game_started_v1` would fail to project, silently.
+  `read_model_migration_tests` builds that older file and proves the boot
+  migrates it and the slice still projects a start.
 
 ## [0.6.0] - 2026-10-20
 
