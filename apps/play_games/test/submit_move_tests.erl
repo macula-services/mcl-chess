@@ -258,13 +258,11 @@ the_history_is_trimmed_at_an_irreversible_move_test() ->
 %% produced, in text, and a payload macula will actually put on the wire.
 a_move_over_the_wire_is_read_and_answered_in_text() ->
     GameId = started(),
-    Payload = #{{text, <<"game_id">>} => {text, GameId},
-                {text, <<"move">>} => {text, <<"e2e4">>},
-                caller => ?ALICE_RAW},
-    {reply, View, _State} = submit_move_responder_v1:handle_request(Payload, undefined),
-    ?assertEqual({text, <<"b">>}, maps:get(<<"to_move">>, View)),
+    View = mcl_om_wire_test:call(submit_move_responder_v1,
+                                 #{game_id => GameId, move => <<"e2e4">>},
+                                 ?ALICE_RAW),
+    ?assertEqual(<<"b">>, maps:get(<<"to_move">>, View)),
     ?assertEqual(1, maps:get(<<"ply">>, View)),
-    ?assertEqual(ok, macula_frame:check_payload(View)),
     %% The mover is the wire's caller in hex, not the 32 raw bytes.
     [Played] = events(GameId, <<"move_played_v1">>),
     ?assertEqual(?ALICE, maps:get(player_node_id, data_of(Played))).

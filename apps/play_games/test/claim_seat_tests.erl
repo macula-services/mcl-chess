@@ -113,25 +113,29 @@ a_caller_cannot_seat_another_node_from_the_body() ->
     %% The R1 rule, carried forward: the seat holder is the node macula
     %% verified on the call, never a node id a body names.
     %%
-    %% THE PAYLOAD IS THE SHAPE THE WIRE ACTUALLY DELIVERS, and that is the
-    %% point: text keys as `{text, Bin}', the caller under the atom key. A
-    %% test fed the shape the handler happens to expect stays green while
-    %% every real caller is refused (mcl-chess#10).
+    %% THE TEST SPEAKS THE WIRE (mcl-om#31): a request authored the way a
+    %% client writes it, delivered as text keys and a RAW 32-byte caller, and
+    %% read back as the client reads it. A test fed the shape the handler
+    %% happens to expect stays green while every real caller is refused
+    %% (mcl-chess#10).
+    %%
+    %% The body names a caller as well as a seat, because a peer that names
+    %% itself is the case the platform rule exists for: the helper drops a
+    %% body-sent `caller' the way a station does, so a handler that read it
+    %% would seat BOB here and fail the assertion below.
     GameId = born(),
-    Payload = #{{text, <<"game_id">>} => {text, GameId},
-                {text, <<"color">>} => {text, <<"w">>},
-                {text, <<"player_node_id">>} => {text, ?BOB},
-                {text, <<"node_id">>} => {text, ?BOB},
-                caller => ?ALICE_RAW},
-    {reply, View, _State} = claim_seat_responder_v1:handle_request(Payload, undefined),
-    ?assertEqual({text, ?ALICE}, maps:get(<<"white">>, maps:get(<<"seats">>, View))),
-    %% The colour the caller asked for comes back as wire text too.
-    ?assertEqual({text, <<"w">>}, maps:get(<<"color">>, View)),
+    View = mcl_om_wire_test:call(claim_seat_responder_v1,
+                                 #{game_id => GameId,
+                                   color => <<"w">>,
+                                   caller => ?BOB,
+                                   player_node_id => ?BOB,
+                                   node_id => ?BOB},
+                                 ?ALICE_RAW),
+    ?assertEqual(?ALICE, maps:get(<<"white">>, maps:get(<<"seats">>, View))),
+    %% The colour the caller asked for comes back as text too.
+    ?assertEqual(<<"w">>, maps:get(<<"color">>, View)),
     [Claimed] = claimed_events(GameId),
-    ?assertEqual(?ALICE, maps:get(player_node_id, data_of(Claimed))),
-    %% And the reply is a payload macula will put on the wire: the raw node id
-    %% as text would be refused as invalid_text.
-    ?assertEqual(ok, macula_frame:check_payload(View)).
+    ?assertEqual(?ALICE, maps:get(player_node_id, data_of(Claimed))).
 
 an_unknown_colour_is_refused_without_an_event() ->
     GameId = born(),

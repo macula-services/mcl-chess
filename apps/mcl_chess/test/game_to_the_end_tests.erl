@@ -23,6 +23,10 @@
 -define(COLLECTOR, mcl_chess_end_test_collector).
 -define(START, <<"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1">>).
 -define(FOOLS_MATE, <<"rnb1kbnr/pppp1ppp/8/4p3/6Pq/5P2/PPPPP2P/RNBQKBNR w KQkq - 1 3">>).
+%% A reader as macula delivers one on the wire: the raw 32-byte node id. Reading
+%% a game is open to anyone, so which reader it is does not matter here; that it
+%% arrives in the wire's own form does.
+-define(READER_RAW, crypto:hash(sha256, <<"game-to-the-end-tests reader">>)).
 
 end_test_() ->
     {setup, fun setup/0, fun cleanup/1,
@@ -123,20 +127,22 @@ the_read_model_holds_the_finished_game() ->
                  maps:get(<<"moves">>, Row)),
     ?assertEqual(<<"initiated, ended">>, maps:get(<<"status_label">>, Row)).
 
-%% The shape the wire delivers: text keys as `{text, Bin}'. A bare binary key,
-%% which is what the responder used to look for, matches nothing, so every real
-%% read answered not_found (mcl-chess#10). The reply must also be a payload
-%% macula will put on the wire: text as CBOR text, not an opaque byte string.
+%% The test speaks the wire (mcl-om#31): the request is authored the way a
+%% client writes it and delivered with the text keys a station produces, so a
+%% responder reading a bare `<<"game_id">>' key answers not_found, as it did to
+%% every real read before mcl-chess#10. The reply is read as the client reads
+%% it, after the check macula runs before answering, so a reply carrying its
+%% text as an opaque byte string fails here rather than on the wire.
 the_read_model_answers_a_wire_shaped_request() ->
     GameId = mate_in_four(),
     _ = await_status(GameId, 9, 200),
-    Payload = #{{text, <<"game_id">>} => {text, GameId}},
-    {reply, Reply, _State} = get_game_by_id_responder_v1:handle_request(Payload, undefined),
-    ?assertEqual({text, ?FOOLS_MATE}, maps:get(<<"position">>, Reply)),
-    ?assertEqual({text, <<"checkmate">>}, maps:get(<<"end_reason">>, Reply)),
-    ?assertEqual({text, <<"winner">>}, maps:get(<<"outcome">>, Reply)),
-    ?assertEqual(4, maps:get(<<"ply">>, Reply)),
-    ?assertEqual(ok, macula_frame:check_payload(Reply)).
+    View = mcl_om_wire_test:call(get_game_by_id_responder_v1,
+                                 #{game_id => GameId},
+                                 ?READER_RAW),
+    ?assertEqual(?FOOLS_MATE, maps:get(<<"position">>, View)),
+    ?assertEqual(<<"checkmate">>, maps:get(<<"end_reason">>, View)),
+    ?assertEqual(<<"winner">>, maps:get(<<"outcome">>, View)),
+    ?assertEqual(4, maps:get(<<"ply">>, View)).
 
 fivefold_repetition_ends_the_game() ->
     %% Knights out and back, four times: after the sixteenth halfmove the game

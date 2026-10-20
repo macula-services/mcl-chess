@@ -141,19 +141,18 @@ born() ->
                             #{time_control => {60000, 0}, initiator => ?ALICE}),
     maps:get(game_id, Event).
 
-%% The shape the wire delivers: text keys as `{text, Bin}', the caller under the
-%% atom key and as the raw node id. The reply is the ended state in text, and a
-%% payload macula will actually put on the wire.
+%% The test speaks the wire (mcl-om#31): the request is authored the way a
+%% client writes it, delivered with text keys and a RAW 32-byte caller, and read
+%% back as the client reads it. The reply is the ended state in text.
 a_resignation_over_the_wire_is_read_and_answered_in_text() ->
     GameId = started(),
-    Payload = #{{text, <<"game_id">>} => {text, GameId},
-                caller => ?ALICE_RAW},
-    {reply, View, _State} = resign_game_responder_v1:handle_request(Payload, undefined),
-    ?assertEqual({text, <<"resignation">>}, maps:get(<<"end_reason">>, View)),
-    ?assertEqual({text, <<"forfeit">>}, maps:get(<<"outcome">>, View)),
-    ?assertEqual(ok, macula_frame:check_payload(View)),
+    View = mcl_om_wire_test:call(resign_game_responder_v1,
+                                 #{game_id => GameId},
+                                 ?ALICE_RAW),
+    ?assertEqual(<<"resignation">>, maps:get(<<"end_reason">>, View)),
+    ?assertEqual(<<"forfeit">>, maps:get(<<"outcome">>, View)),
     %% The resigner is the wire's caller in hex, not the 32 raw bytes.
-    ?assertEqual({text, ?ALICE}, maps:get(<<"initiator">>, View)).
+    ?assertEqual(?ALICE, maps:get(<<"initiator">>, View)).
 
 started() ->
     GameId = born(),

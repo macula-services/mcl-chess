@@ -64,23 +64,22 @@ a_withdrawn_game_is_not_an_ended_game() ->
 %% Helpers
 %%====================================================================
 
-%% The shape the wire delivers: text keys as `{text, Bin}', the caller under the
-%% atom key and as the raw node id. The reply is the archived state in text, and
-%% a payload macula will actually put on the wire.
+%% The test speaks the wire (mcl-om#31): a request authored the way a client
+%% writes it, delivered with text keys and a RAW 32-byte caller, and read back as
+%% the client reads it. The reply is the archived state in text.
 a_withdraw_over_the_wire_is_read_and_answered_in_text() ->
     GameId = initiated(),
-    Payload = #{{text, <<"game_id">>} => {text, GameId},
-                caller => ?INITIATOR_RAW},
-    {reply, View, _State} = withdraw_game_responder_v1:handle_request(Payload, undefined),
+    View = mcl_om_wire_test:call(withdraw_game_responder_v1,
+                                 #{game_id => GameId},
+                                 ?INITIATOR_RAW),
     %% Archived is not ended: INITIATED stays, ENDED is not set, and the label
-    %% goes out as text.
+    %% reaches the client as text.
     Status = maps:get(<<"status">>, View),
     ?assertEqual(1, Status band 1),
     ?assertEqual(0, Status band 8),
-    ?assertMatch({text, _}, maps:get(<<"status_label">>, View)),
-    ?assertEqual(ok, macula_frame:check_payload(View)),
+    ?assertEqual(<<"initiated, archived">>, maps:get(<<"status_label">>, View)),
     %% The initiator is the wire's caller in hex, not the 32 raw bytes.
-    ?assertEqual({text, ?INITIATOR}, maps:get(<<"initiator">>, View)).
+    ?assertEqual(?INITIATOR, maps:get(<<"initiator">>, View)).
 
 initiated() ->
     {ok, _Version, [Event], _View} = initiate_game_api:handle(
