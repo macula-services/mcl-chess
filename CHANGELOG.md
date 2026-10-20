@@ -5,6 +5,27 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.2] - 2026-10-20
+
+### Fixed
+
+- **Every capability refused a request shaped the way it documents
+  (mcl-chess#10):** the responders read their fields with
+  `maps:get(<<"key">>, Payload, Default)`, but on the wire every text key
+  arrives as `{text, Bin}` and `caller` arrives under the atom key
+  (`macula_station_link:with_caller/2`). Every real call answered
+  `invalid_params` or `missing_required_fields` to a well-formed request, while
+  two responder tests, fed the shape the handlers expected, stayed green; the
+  live game harness found it on its first `initiate_game`. Reads now go through
+  `mcl_om_wire:field/2,3` and `mcl_om_wire:caller/1`, which exists to resolve
+  exactly this.
+- **Replies carried their text as opaque byte strings (mcl-chess#10):** a plain
+  binary on this wire is a CBOR byte string, so a reply's `game_id`,
+  `status_label`, `outcome` and `position` reached clients as blobs and a
+  client could not match a returned game id against the one it sent. Every
+  capability reply now goes through `mcl_chess_wire:to_wire/1`, the same
+  conversion the facts already used.
+
 ## [0.7.1] - 2026-10-20
 
 ### Fixed

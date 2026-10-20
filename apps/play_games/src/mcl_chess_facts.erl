@@ -133,13 +133,11 @@ field(Field, Event) ->
     maps:get(Field, Event, maps:get(atom_to_binary(Field, utf8), Event, undefined)).
 
 %% @doc Text as CBOR text, booleans as 1/0, numbers and shapes as they are.
+%%
+%% The same conversion every capability reply needs, so it lives in
+%% mcl_chess_wire and is called from here rather than kept twice.
 -spec to_wire(term()) -> term().
-to_wire(B) when is_binary(B) -> {text, B};
-to_wire(true) -> 1;
-to_wire(false) -> 0;
-to_wire(L) when is_list(L) -> [to_wire(E) || E <- L];
-to_wire(M) when is_map(M) -> maps:map(fun(_K, V) -> to_wire(V) end, M);
-to_wire(Other) -> Other.
+to_wire(Term) -> mcl_chess_wire:to_wire(Term).
 
 -spec topic(binary(), game_initiated | seat_claimed | seat_refused |
                          game_started | move_played | move_refused |

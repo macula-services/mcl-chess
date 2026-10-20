@@ -39,8 +39,16 @@
 
 info() ->
     #{name => <<"mcl-chess">>,
-      version => <<"0.7.1">>,
+      version => version(),
       description => <<"A chess referee for AI agents on the mesh">>}.
+
+%% The release's own version, read from where it is bumped, so /health cannot
+%% report a version this image is not.
+version() ->
+    case application:get_key(mcl_chess, vsn) of
+        {ok, Vsn} -> list_to_binary(Vsn);
+        undefined -> <<"unknown">>
+    end.
 
 start(_Opts) -> mcl_chess_sup:start_link().
 

@@ -25,7 +25,8 @@ pure_test_() ->
     [fun a_control_shorter_than_a_second_is_refused/0,
      fun a_control_past_a_day_is_refused/0,
      fun a_zero_increment_is_legal/0,
-     fun the_wire_request_builds_a_command/0].
+     fun the_wire_request_builds_a_command/0,
+     fun an_empty_wire_request_is_refused_in_text/0].
 
 a_game_is_born_with_its_whole_state() ->
     GameId = initiated(60000, 2000),
@@ -68,15 +69,35 @@ an_initiated_game_cannot_be_initiated_again() ->
 %% them and must not seat them: the born game has two empty seats whatever
 %% the caller sent. Pre-assignment is the future matchmaker's path, and it
 %% will need its own authorization when it is built.
+%%
+%% THE PAYLOAD IS THE SHAPE THE WIRE ACTUALLY DELIVERS, and that is the point
+%% of the test: text keys as `{text, Bin}', the caller under the atom key. A
+%% test fed the shape the handler happens to expect (`<<"caller">>') stays
+%% green while every real caller is refused, which is exactly how 0.7.1
+%% shipped answering invalid_params to everyone (mcl-chess#10).
 a_caller_cannot_preassign_the_seats() ->
-    Payload = #{<<"caller">> => ?INITIATOR,
-                <<"time_control">> => #{<<"initial_ms">> => 60000,
-                                        <<"increment_ms">> => 0},
-                <<"seats">> => #{<<"white">> => ?STRANGER_A,
-                                 <<"black">> => ?STRANGER_B}},
-    {reply, View, _State} = initiate_game_responder_v1:handle_request(Payload, undefined),
-    ?assertEqual(#{<<"white">> => <<>>, <<"black">> => <<>>},
-                 maps:get(<<"seats">>, View)).
+    {reply, View, _State} = initiate_game_responder_v1:handle_request(wire_request(), undefined),
+    ?assertEqual(#{<<"white">> => {text, <<>>}, <<"black">> => {text, <<>>}},
+                 maps:get(<<"seats">>, View)),
+    %% The initiator is the wire's caller, and the reply's text fields are
+    %% CBOR text rather than opaque byte strings.
+    ?assertEqual({text, ?INITIATOR}, maps:get(<<"initiator">>, View)),
+    ?assertMatch({text, <<"game-", _/binary>>}, maps:get(<<"game_id">>, View)).
+
+wire_request() ->
+    #{{text, <<"time_control">>} =>
+          #{{text, <<"initial_ms">>} => 60000,
+            {text, <<"increment_ms">>} => 0},
+      {text, <<"seats">>} =>
+          #{{text, <<"white">>} => {text, ?STRANGER_A},
+            {text, <<"black">>} => {text, ?STRANGER_B}},
+      caller => ?INITIATOR}.
+
+%% A request with nothing in it is refused by name, and the refusal itself
+%% goes out as text: a caller must be able to read the reason.
+an_empty_wire_request_is_refused_in_text() ->
+    {reply, Reply, _State} = initiate_game_responder_v1:handle_request(#{caller => ?INITIATOR}, undefined),
+    ?assertEqual(#{<<"error">> => {text, <<"invalid_time_control">>}}, Reply).
 
 a_control_shorter_than_a_second_is_refused() ->
     ?assertEqual({error, initial_ms_out_of_range},

@@ -106,14 +106,21 @@ a_claim_on_an_archived_game_records_nothing() ->
 a_caller_cannot_seat_another_node_from_the_body() ->
     %% The R1 rule, carried forward: the seat holder is the node macula
     %% verified on the call, never a node id a body names.
+    %%
+    %% THE PAYLOAD IS THE SHAPE THE WIRE ACTUALLY DELIVERS, and that is the
+    %% point: text keys as `{text, Bin}', the caller under the atom key. A
+    %% test fed the shape the handler happens to expect stays green while
+    %% every real caller is refused (mcl-chess#10).
     GameId = born(),
-    Payload = #{<<"caller">> => ?ALICE,
-                <<"game_id">> => GameId,
-                <<"color">> => <<"w">>,
-                <<"player_node_id">> => ?BOB,
-                <<"node_id">> => ?BOB},
+    Payload = #{{text, <<"game_id">>} => {text, GameId},
+                {text, <<"color">>} => {text, <<"w">>},
+                {text, <<"player_node_id">>} => {text, ?BOB},
+                {text, <<"node_id">>} => {text, ?BOB},
+                caller => ?ALICE},
     {reply, View, _State} = claim_seat_responder_v1:handle_request(Payload, undefined),
-    ?assertEqual(?ALICE, maps:get(<<"white">>, maps:get(<<"seats">>, View))),
+    ?assertEqual({text, ?ALICE}, maps:get(<<"white">>, maps:get(<<"seats">>, View))),
+    %% The colour the caller asked for comes back as wire text too.
+    ?assertEqual({text, <<"w">>}, maps:get(<<"color">>, View)),
     [Claimed] = claimed_events(GameId),
     ?assertEqual(?ALICE, maps:get(player_node_id, data_of(Claimed))).
 
