@@ -9,6 +9,11 @@
 -include_lib("eunit/include/eunit.hrl").
 
 -define(INITIATOR, <<"a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90">>).
+%% The caller as macula actually delivers it: the raw 32-byte node id, whose
+%% hex form is ?INITIATOR_HEX. One is the wire, the other is what this service
+%% stores; the boundary between them is mcl_chess_wire:caller/1.
+-define(INITIATOR_RAW, crypto:hash(sha256, <<"initiate-game-tests initiator">>)).
+-define(INITIATOR_HEX, binary:encode_hex(?INITIATOR_RAW, lowercase)).
 -define(STRANGER_A, <<"b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90a1">>).
 -define(STRANGER_B, <<"c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2">>).
 
@@ -71,18 +76,24 @@ an_initiated_game_cannot_be_initiated_again() ->
 %% will need its own authorization when it is built.
 %%
 %% THE PAYLOAD IS THE SHAPE THE WIRE ACTUALLY DELIVERS, and that is the point
-%% of the test: text keys as `{text, Bin}', the caller under the atom key. A
-%% test fed the shape the handler happens to expect (`<<"caller">>') stays
-%% green while every real caller is refused, which is exactly how 0.7.1
-%% shipped answering invalid_params to everyone (mcl-chess#10).
+%% of the test: text keys as `{text, Bin}', the caller under the atom key and
+%% as the RAW 32-byte node id macula verifies, which is not what this service
+%% stores. A test fed the shape the handler happens to expect stays green while
+%% every real caller is refused, which is how 0.7.1 shipped answering
+%% invalid_params to everyone, and a 64-hex caller would hide the second half
+%% of it (mcl-chess#10).
 a_caller_cannot_preassign_the_seats() ->
     {reply, View, _State} = initiate_game_responder_v1:handle_request(wire_request(), undefined),
     ?assertEqual(#{<<"white">> => {text, <<>>}, <<"black">> => {text, <<>>}},
                  maps:get(<<"seats">>, View)),
-    %% The initiator is the wire's caller, and the reply's text fields are
+    %% The initiator is the wire's caller in hex, and the reply's text fields are
     %% CBOR text rather than opaque byte strings.
-    ?assertEqual({text, ?INITIATOR}, maps:get(<<"initiator">>, View)),
-    ?assertMatch({text, <<"game-", _/binary>>}, maps:get(<<"game_id">>, View)).
+    ?assertEqual({text, ?INITIATOR_HEX}, maps:get(<<"initiator">>, View)),
+    ?assertMatch({text, <<"game-", _/binary>>}, maps:get(<<"game_id">>, View)),
+    %% And the whole reply is a payload macula will actually put on the wire: a
+    %% raw node id as text would be refused as invalid_text, which no unit test
+    %% of the view alone would catch.
+    ?assertEqual(ok, macula_frame:check_payload(View)).
 
 wire_request() ->
     #{{text, <<"time_control">>} =>
@@ -91,13 +102,14 @@ wire_request() ->
       {text, <<"seats">>} =>
           #{{text, <<"white">>} => {text, ?STRANGER_A},
             {text, <<"black">>} => {text, ?STRANGER_B}},
-      caller => ?INITIATOR}.
+      caller => ?INITIATOR_RAW}.
 
 %% A request with nothing in it is refused by name, and the refusal itself
 %% goes out as text: a caller must be able to read the reason.
 an_empty_wire_request_is_refused_in_text() ->
-    {reply, Reply, _State} = initiate_game_responder_v1:handle_request(#{caller => ?INITIATOR}, undefined),
-    ?assertEqual(#{<<"error">> => {text, <<"invalid_time_control">>}}, Reply).
+    {reply, Reply, _State} = initiate_game_responder_v1:handle_request(#{caller => ?INITIATOR_RAW}, undefined),
+    ?assertEqual(#{<<"error">> => {text, <<"invalid_time_control">>}}, Reply),
+    ?assertEqual(ok, macula_frame:check_payload(Reply)).
 
 a_control_shorter_than_a_second_is_refused() ->
     ?assertEqual({error, initial_ms_out_of_range},

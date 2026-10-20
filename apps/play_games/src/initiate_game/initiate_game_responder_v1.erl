@@ -48,7 +48,7 @@ initiated({error, Reason}) -> error_reply(Reason).
 %% The platform injects `caller' over any same-named key the caller sent, so
 %% this is the verified node id and not a claim.
 request(Payload) ->
-    #{initiator => mcl_om_wire:caller(Payload),
+    #{initiator => mcl_chess_wire:caller(Payload),
       time_control => time_control(Payload)}.
 
 time_control(Payload) ->

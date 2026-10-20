@@ -9,7 +9,11 @@
 -include_lib("eunit/include/eunit.hrl").
 -include_lib("reckon_gater/include/reckon_gater_types.hrl").
 
--define(ALICE, <<"a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90">>).
+%% The caller as macula actually delivers it (the raw 32-byte node id) and as
+%% this service stores it (hex). A 64-hex caller cannot tell the two apart
+%% (mcl-chess#10).
+-define(ALICE_RAW, crypto:hash(sha256, <<"resign-tests alice">>)).
+-define(ALICE, binary:encode_hex(?ALICE_RAW, lowercase)).
 -define(BOB, <<"b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90a1">>).
 -define(CAROL, <<"c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2">>).
 
@@ -23,7 +27,8 @@ store_test_() ->
       {timeout, 60, fun an_archived_game_does_not_end/0},
       {timeout, 60, fun the_end_desk_names_a_winner_the_game_admitted/0},
       {timeout, 60, fun a_draw_names_nobody/0},
-      {timeout, 60, fun an_ended_game_cannot_be_withdrawn/0}]}.
+      {timeout, 60, fun an_ended_game_cannot_be_withdrawn/0},
+      {timeout, 60, fun a_resignation_over_the_wire_is_read_and_answered_in_text/0}]}.
 
 the_opponent_wins_when_a_player_resigns() ->
     GameId = started(),
@@ -135,6 +140,20 @@ born() ->
     {ok, _, [Event], _} = initiate_game_api:handle(
                             #{time_control => {60000, 0}, initiator => ?ALICE}),
     maps:get(game_id, Event).
+
+%% The shape the wire delivers: text keys as `{text, Bin}', the caller under the
+%% atom key and as the raw node id. The reply is the ended state in text, and a
+%% payload macula will actually put on the wire.
+a_resignation_over_the_wire_is_read_and_answered_in_text() ->
+    GameId = started(),
+    Payload = #{{text, <<"game_id">>} => {text, GameId},
+                caller => ?ALICE_RAW},
+    {reply, View, _State} = resign_game_responder_v1:handle_request(Payload, undefined),
+    ?assertEqual({text, <<"resignation">>}, maps:get(<<"end_reason">>, View)),
+    ?assertEqual({text, <<"forfeit">>}, maps:get(<<"outcome">>, View)),
+    ?assertEqual(ok, macula_frame:check_payload(View)),
+    %% The resigner is the wire's caller in hex, not the 32 raw bytes.
+    ?assertEqual({text, ?ALICE}, maps:get(<<"initiator">>, View)).
 
 started() ->
     GameId = born(),

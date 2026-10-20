@@ -8,7 +8,11 @@
 
 -include_lib("eunit/include/eunit.hrl").
 
--define(INITIATOR, <<"a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90">>).
+%% The caller as macula actually delivers it (the raw 32-byte node id) and as
+%% this service stores it (hex). A 64-hex caller cannot tell the two apart
+%% (mcl-chess#10).
+-define(INITIATOR_RAW, crypto:hash(sha256, <<"withdraw-tests initiator">>)).
+-define(INITIATOR, binary:encode_hex(?INITIATOR_RAW, lowercase)).
 -define(STRANGER, <<"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff">>).
 
 store_test_() ->
@@ -16,7 +20,8 @@ store_test_() ->
      [{timeout, 60, fun the_initiator_withdraws_a_game_before_it_starts/0},
       {timeout, 60, fun a_stranger_cannot_withdraw_someone_elses_game/0},
       {timeout, 60, fun an_archived_game_cannot_be_withdrawn_again/0},
-      {timeout, 60, fun a_withdrawn_game_is_not_an_ended_game/0}]}.
+      {timeout, 60, fun a_withdrawn_game_is_not_an_ended_game/0},
+      {timeout, 60, fun a_withdraw_over_the_wire_is_read_and_answered_in_text/0}]}.
 
 the_initiator_withdraws_a_game_before_it_starts() ->
     GameId = initiated(),
@@ -58,6 +63,24 @@ a_withdrawn_game_is_not_an_ended_game() ->
 %%====================================================================
 %% Helpers
 %%====================================================================
+
+%% The shape the wire delivers: text keys as `{text, Bin}', the caller under the
+%% atom key and as the raw node id. The reply is the archived state in text, and
+%% a payload macula will actually put on the wire.
+a_withdraw_over_the_wire_is_read_and_answered_in_text() ->
+    GameId = initiated(),
+    Payload = #{{text, <<"game_id">>} => {text, GameId},
+                caller => ?INITIATOR_RAW},
+    {reply, View, _State} = withdraw_game_responder_v1:handle_request(Payload, undefined),
+    %% Archived is not ended: INITIATED stays, ENDED is not set, and the label
+    %% goes out as text.
+    Status = maps:get(<<"status">>, View),
+    ?assertEqual(1, Status band 1),
+    ?assertEqual(0, Status band 8),
+    ?assertMatch({text, _}, maps:get(<<"status_label">>, View)),
+    ?assertEqual(ok, macula_frame:check_payload(View)),
+    %% The initiator is the wire's caller in hex, not the 32 raw bytes.
+    ?assertEqual({text, ?INITIATOR}, maps:get(<<"initiator">>, View)).
 
 initiated() ->
     {ok, _Version, [Event], _View} = initiate_game_api:handle(

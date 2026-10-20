@@ -25,6 +25,14 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   client could not match a returned game id against the one it sent. Every
   capability reply now goes through `mcl_chess_wire:to_wire/1`, the same
   conversion the facts already used.
+- **The verified caller is a raw node id, and text must be UTF-8
+  (mcl-chess#10):** macula injects `caller` as the raw 32-byte node id, and a
+  reply or a fact carrying one is refused as `invalid_text` once it is tagged
+  as CBOR text, which reaches the caller as `unknown_error`. Worse, the events
+  and seats would hold something no other part of the service compares
+  against. The caller is now hex-encoded once, at the read boundary
+  (`mcl_chess_wire:caller/1`), so events, seats, facts and replies all carry
+  the same 64-character hex node id.
 
 ## [0.7.1] - 2026-10-20
 

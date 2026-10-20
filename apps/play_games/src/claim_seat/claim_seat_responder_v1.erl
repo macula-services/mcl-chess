@@ -40,7 +40,7 @@ claimed({error, Reason}, _Color) ->
 
 request(Payload) ->
     #{game_id => mcl_om_wire:field(game_id, Payload),
-      caller => mcl_om_wire:caller(Payload),
+      caller => mcl_chess_wire:caller(Payload),
       color => mcl_om_wire:field(color, Payload)}.
 
 error_reply(Reason) ->

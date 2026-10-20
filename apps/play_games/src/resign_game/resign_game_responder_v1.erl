@@ -31,7 +31,7 @@ resigned(_) ->
 
 request(Payload) ->
     #{game_id => mcl_om_wire:field(game_id, Payload),
-      caller => mcl_om_wire:caller(Payload)}.
+      caller => mcl_chess_wire:caller(Payload)}.
 
 answered({ok, _Version, _Events, View}) ->
     mcl_chess_wire:to_wire(View);

@@ -29,6 +29,7 @@ end_test_() ->
      [{timeout, 90, fun fools_mate_ends_the_game_and_names_the_winner/0},
       {timeout, 90, fun the_ended_fact_reaches_the_mesh/0},
       {timeout, 90, fun the_read_model_holds_the_finished_game/0},
+      {timeout, 90, fun the_read_model_answers_a_wire_shaped_request/0},
       {timeout, 90, fun fivefold_repetition_ends_the_game/0},
       {timeout, 90, fun the_policy_ends_a_game_on_the_seventy_five_move_rule/0},
       {timeout, 90, fun a_game_that_has_not_ended_keeps_playing/0}]}.
@@ -121,6 +122,21 @@ the_read_model_holds_the_finished_game() ->
     ?assertEqual([<<"f2f3">>, <<"e7e5">>, <<"g2g4">>, <<"d8h4">>],
                  maps:get(<<"moves">>, Row)),
     ?assertEqual(<<"initiated, ended">>, maps:get(<<"status_label">>, Row)).
+
+%% The shape the wire delivers: text keys as `{text, Bin}'. A bare binary key,
+%% which is what the responder used to look for, matches nothing, so every real
+%% read answered not_found (mcl-chess#10). The reply must also be a payload
+%% macula will put on the wire: text as CBOR text, not an opaque byte string.
+the_read_model_answers_a_wire_shaped_request() ->
+    GameId = mate_in_four(),
+    _ = await_status(GameId, 9, 200),
+    Payload = #{{text, <<"game_id">>} => {text, GameId}},
+    {reply, Reply, _State} = get_game_by_id_responder_v1:handle_request(Payload, undefined),
+    ?assertEqual({text, ?FOOLS_MATE}, maps:get(<<"position">>, Reply)),
+    ?assertEqual({text, <<"checkmate">>}, maps:get(<<"end_reason">>, Reply)),
+    ?assertEqual({text, <<"winner">>}, maps:get(<<"outcome">>, Reply)),
+    ?assertEqual(4, maps:get(<<"ply">>, Reply)),
+    ?assertEqual(ok, macula_frame:check_payload(Reply)).
 
 fivefold_repetition_ends_the_game() ->
     %% Knights out and back, four times: after the sixteenth halfmove the game

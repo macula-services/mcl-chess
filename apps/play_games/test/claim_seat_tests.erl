@@ -12,7 +12,13 @@
 -include_lib("eunit/include/eunit.hrl").
 -include_lib("reckon_gater/include/reckon_gater_types.hrl").
 
--define(ALICE, <<"a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90">>).
+%% The caller as macula actually delivers it, and as this service stores it:
+%% macula verifies a call and injects the RAW 32-byte node id, and the service
+%% keeps the hex form (mcl_chess_wire:caller/1). One test below sends the raw
+%% one and expects the hex one back, because a 64-hex caller cannot tell the
+%% two apart and hid a fault that refused every real caller (mcl-chess#10).
+-define(ALICE_RAW, crypto:hash(sha256, <<"claim-seat-tests alice">>)).
+-define(ALICE, binary:encode_hex(?ALICE_RAW, lowercase)).
 -define(BOB, <<"b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90a1">>).
 -define(CAROL, <<"c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2">>).
 
@@ -116,13 +122,16 @@ a_caller_cannot_seat_another_node_from_the_body() ->
                 {text, <<"color">>} => {text, <<"w">>},
                 {text, <<"player_node_id">>} => {text, ?BOB},
                 {text, <<"node_id">>} => {text, ?BOB},
-                caller => ?ALICE},
+                caller => ?ALICE_RAW},
     {reply, View, _State} = claim_seat_responder_v1:handle_request(Payload, undefined),
     ?assertEqual({text, ?ALICE}, maps:get(<<"white">>, maps:get(<<"seats">>, View))),
     %% The colour the caller asked for comes back as wire text too.
     ?assertEqual({text, <<"w">>}, maps:get(<<"color">>, View)),
     [Claimed] = claimed_events(GameId),
-    ?assertEqual(?ALICE, maps:get(player_node_id, data_of(Claimed))).
+    ?assertEqual(?ALICE, maps:get(player_node_id, data_of(Claimed))),
+    %% And the reply is a payload macula will put on the wire: the raw node id
+    %% as text would be refused as invalid_text.
+    ?assertEqual(ok, macula_frame:check_payload(View)).
 
 an_unknown_colour_is_refused_without_an_event() ->
     GameId = born(),

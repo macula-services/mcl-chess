@@ -14,7 +14,11 @@
 -include_lib("eunit/include/eunit.hrl").
 -include_lib("reckon_gater/include/reckon_gater_types.hrl").
 
--define(ALICE, <<"a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90">>).
+%% The caller as macula actually delivers it (the raw 32-byte node id) and as
+%% this service stores it (hex). A 64-hex caller cannot tell the two apart, and
+%% that is how every real caller came to be refused (mcl-chess#10).
+-define(ALICE_RAW, crypto:hash(sha256, <<"submit-move-tests alice">>)).
+-define(ALICE, binary:encode_hex(?ALICE_RAW, lowercase)).
 -define(BOB, <<"b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90a1">>).
 -define(CAROL, <<"c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2">>).
 -define(START, <<"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1">>).
@@ -34,7 +38,8 @@ store_test_() ->
       {timeout, 60, fun the_halfmove_counter_resets_on_a_pawn_move/0},
       {timeout, 60, fun the_halfmove_counter_climbs_on_quiet_moves/0},
       {timeout, 60, fun a_repeated_position_is_counted/0},
-      {timeout, 60, fun a_mover_cannot_grow_the_stream_without_bound/0}]}.
+      {timeout, 60, fun a_mover_cannot_grow_the_stream_without_bound/0},
+      {timeout, 60, fun a_move_over_the_wire_is_read_and_answered_in_text/0}]}.
 
 the_seat_to_move_plays_its_move() ->
     GameId = started(),
@@ -248,11 +253,26 @@ the_history_is_trimmed_at_an_irreversible_move_test() ->
 %% Helpers
 %%====================================================================
 
+%% The shape the wire delivers: text keys as `{text, Bin}', the caller under the
+%% atom key and as the raw node id. What comes back is the state the move
+%% produced, in text, and a payload macula will actually put on the wire.
+a_move_over_the_wire_is_read_and_answered_in_text() ->
+    GameId = started(),
+    Payload = #{{text, <<"game_id">>} => {text, GameId},
+                {text, <<"move">>} => {text, <<"e2e4">>},
+                caller => ?ALICE_RAW},
+    {reply, View, _State} = submit_move_responder_v1:handle_request(Payload, undefined),
+    ?assertEqual({text, <<"b">>}, maps:get(<<"to_move">>, View)),
+    ?assertEqual(1, maps:get(<<"ply">>, View)),
+    ?assertEqual(ok, macula_frame:check_payload(View)),
+    %% The mover is the wire's caller in hex, not the 32 raw bytes.
+    [Played] = events(GameId, <<"move_played_v1">>),
+    ?assertEqual(?ALICE, maps:get(player_node_id, data_of(Played))).
+
 born() ->
     {ok, _, [Event], _} = initiate_game_api:handle(
                             #{time_control => {60000, 0}, initiator => ?ALICE}),
     maps:get(game_id, Event).
-
 started() ->
     GameId = born(),
     {ok, _, _, _} = claim(GameId, ?ALICE, <<"w">>),
