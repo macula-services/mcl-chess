@@ -1,6 +1,6 @@
 {application, play_games, [
     {description, "mcl-chess CMD division: the Game aggregate, its commands and events."},
-    {vsn, "0.1.0"},
+    {vsn, "0.7.2"},
     {registered, []},
     {mod, {play_games_app, []}},
     {applications, [
