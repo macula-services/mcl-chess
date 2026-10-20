@@ -66,6 +66,8 @@ the_parser_reads_the_declared_schema() ->
     ?assert(lists:member(<<"status_label">>, columns(games))),
     %% The move table's primary key spans two columns and is not itself one.
     ?assertEqual([<<"game_id">>, <<"ply">>, <<"uci">>], columns(moves)),
+    %% A started game carries its own start time (mcl-chess#3).
+    ?assert(lists:member(<<"started_at">>, columns(games))),
     ?assertEqual(false, lists:member(<<"PRIMARY">>, columns(games))),
     ?assertEqual(false, lists:member(<<"KEY">>, columns(moves))).
 
@@ -124,7 +126,10 @@ every_projection_writes_only_declared_columns() ->
     {ok, Game} = get_game_by_id:find(?GAME),
     ?assertEqual(<<"checkmate">>, maps:get(<<"end_reason">>, Game)),
     ?assertEqual(<<"winner">>, maps:get(<<"outcome">>, Game)),
-    ?assertEqual(<<"searching">>, maps:get(<<"archive_reason">>, Game)).
+    ?assertEqual(<<"searching">>, maps:get(<<"archive_reason">>, Game)),
+    %% The start time the desk answers with is the one `game_started_v1'
+    %% carried, not a moment the projection chose (mcl-chess#3).
+    ?assertEqual(1792435657980, maps:get(<<"started_at">>, Game)).
 
 game_flow() ->
     [{game_initiated_v1_to_sqlite_games, initiated()},
@@ -208,6 +213,7 @@ sentinel(<<"flagged_node_id">>) -> <<"flagged-sentinel">>;
 sentinel(<<"initiator">>) -> <<"initiator-sentinel">>;
 sentinel(<<"archive_reason">>) -> <<"archive-sentinel">>;
 sentinel(<<"initiated_at">>) -> 118;
+sentinel(<<"started_at">>) -> 117;
 sentinel(<<"ended_at">>) -> 119;
 sentinel(<<"archived_at">>) -> 120;
 sentinel(<<"event_id">>) -> <<"event-sentinel">>;
@@ -235,6 +241,7 @@ expected_row() ->
            <<"initiator">> => <<"initiator-sentinel">>,
            <<"archive_reason">> => <<"archive-sentinel">>,
            <<"initiated_at">> => 118,
+           <<"started_at">> => 117,
            <<"ended_at">> => 119,
            <<"archived_at">> => 120,
            <<"moves">> => []}}.

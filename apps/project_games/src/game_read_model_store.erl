@@ -28,9 +28,10 @@
 %% time, so a query never recomputes a label and never disagrees with the
 %% record.
 %%
-%% `halfmove_clock' is the referee's own count; `outcome', `end_reason',
-%% `winner_node_id' and `ended_at' stay empty until the end slice runs, and
-%% `flagged_node_id' empty until a clock runs out. The move
+%% `halfmove_clock' is the referee's own count; `started_at' is empty until the
+%% start slice runs and holds the moment `game_started_v1' recorded; `outcome',
+%% `end_reason', `winner_node_id' and `ended_at' stay empty until the end slice
+%% runs, and `flagged_node_id' empty until a clock runs out. The move
 %% list is a TABLE of its own, keyed on `(game_id, ply)`, because a list grown by
 %% concatenation is not idempotent under a replay, and a replay is exactly what a
 %% projection has to survive.
@@ -58,6 +59,7 @@ schema() ->
      " initiator     TEXT NOT NULL,"
      " archive_reason TEXT,"
      " initiated_at  INTEGER NOT NULL,"
+     " started_at    INTEGER,"
      " ended_at      INTEGER,"
      " archived_at   INTEGER,"
      " event_id      TEXT NOT NULL,"

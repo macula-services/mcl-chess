@@ -21,7 +21,7 @@ find(GameId) when is_binary(GameId) ->
             " black_node_id, position, to_move, ply, white_clock_ms,"
             " black_clock_ms, halfmove_clock, status, status_label, outcome,"
             " end_reason, winner_node_id, initiator, archive_reason,"
-            " initiated_at, ended_at, archived_at"
+            " initiated_at, started_at, ended_at, archived_at"
             " FROM games WHERE game_id = ?", [GameId]));
 find(_) ->
     {error, missing_game_id}.
@@ -29,11 +29,12 @@ find(_) ->
 %% @private
 found([[GameId, Protocol, Initial, Increment, White, Black, Position, ToMove,
         Ply, WhiteMs, BlackMs, Clock, Status, Label, Outcome, EndReason,
-        Winner, Initiator, ArchiveReason, InitiatedAt, EndedAt, ArchivedAt] | _]) ->
+        Winner, Initiator, ArchiveReason, InitiatedAt, StartedAt, EndedAt,
+        ArchivedAt] | _]) ->
     listed(game(GameId, Protocol, Initial, Increment, White, Black, Position,
                 ToMove, Ply, WhiteMs, BlackMs, Clock, Status, Label, Outcome,
                 EndReason, Winner, Initiator, ArchiveReason, InitiatedAt,
-                EndedAt, ArchivedAt),
+                StartedAt, EndedAt, ArchivedAt),
            moves(GameId));
 found([]) ->
     {error, not_found};
@@ -55,7 +56,7 @@ listed(_Game, {error, Reason}) ->
 %% @private
 game(GameId, Protocol, Initial, Increment, White, Black, Position, ToMove,
      Ply, WhiteMs, BlackMs, Clock, Status, Label, Outcome, EndReason, Winner,
-     Initiator, ArchiveReason, InitiatedAt, EndedAt, ArchivedAt) ->
+     Initiator, ArchiveReason, InitiatedAt, StartedAt, EndedAt, ArchivedAt) ->
     #{<<"game_id">> => GameId,
       <<"protocol">> => Protocol,
       <<"status">> => Status,
@@ -74,5 +75,6 @@ game(GameId, Protocol, Initial, Increment, White, Black, Position, ToMove,
       <<"initiator">> => Initiator,
       <<"archive_reason">> => ArchiveReason,
       <<"initiated_at">> => InitiatedAt,
+      <<"started_at">> => StartedAt,
       <<"ended_at">> => EndedAt,
       <<"archived_at">> => ArchivedAt}.

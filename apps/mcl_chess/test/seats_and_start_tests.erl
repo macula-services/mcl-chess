@@ -99,7 +99,23 @@ the_query_answers_a_started_game() ->
     ?assertEqual(#{<<"white">> => ?INITIATOR, <<"black">> => ?OPPONENT},
                  maps:get(<<"seats">>, Row)),
     ?assertEqual(5, maps:get(<<"status">>, Row)),
-    ?assertEqual(<<"initiated, started">>, maps:get(<<"status_label">>, Row)).
+    ?assertEqual(<<"initiated, started">>, maps:get(<<"status_label">>, Row)),
+    %% Since when: the read model answers with the moment game_started_v1
+    %% recorded, so a reader needs neither the event stream nor a guess
+    %% (mcl-chess#3).
+    ?assertEqual(started_at(GameId), maps:get(<<"started_at">>, Row)).
+
+%% The start time as the store holds it, taken from the event rather than from
+%% the clock of whoever is reading.
+started_at(GameId) ->
+    [Event] = [E || #event{event_type = Type} = E
+                        <- play_games_test_store:stream(GameId),
+                    Type =:= <<"game_started_v1">>],
+    maps:get(at_ms, data_of(Event)).
+
+data_of(#event{data = Data}) when is_map(Data) -> Data;
+data_of(#{data := Data}) when is_map(Data) -> Data;
+data_of(Event) -> Event.
 
 %%====================================================================
 %% Helpers
