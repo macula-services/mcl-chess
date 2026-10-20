@@ -1,11 +1,18 @@
 ## Node identity and runtime flags for mcl_chess.
 ##
-## The cookie is NEVER a literal here: it arrives from the box at run time
-## (compose supplies ${MCL_COOKIE:?}), so an image or a repository cannot carry
-## one. The node name is kept because the Ra member identity is node(): a
-## nameless node is pinned to nonode@nohost, and naming it later would change a
-## live store's identity.
+## The cookie is NEVER a literal here: it arrives from the box at run time (the
+## compose file's required-variable guard refuses to start without it), so an
+## image or a repository cannot carry one. The node name is kept because the Ra
+## member identity is node(): a nameless node is pinned to nonode@nohost, and
+## naming it later would change a live store's identity.
 ##
+## ⚠ NOTHING BUT A PLAIN VARIABLE NAME MAY APPEAR IN DOLLAR-BRACE BRACES IN THIS
+## FILE, COMMENTS INCLUDED. relx expands this file with an awk that derives its
+## substitution pattern FROM the text between the braces, so a shell-style form
+## such as a required-variable guard turns into a pattern that matches nothing,
+## the loop cannot advance, and the container spins at one core for ever without
+## printing a line. That is how this file's own first deployment failed
+## (mcl-chess#9); mcl_chess_service_tests now pins the rule.
 ## ⚠ THE NAME DOES NOT DECIDE WHERE DISTRIBUTION LISTENS. `-name ...@127.0.0.1'
 ## is what epmd ADVERTISES; without this line the dist listener still binds
 ## every interface. The Containerfile sets ERL_EPMD_ADDRESS for the epmd half,

@@ -155,6 +155,35 @@ the_store_id_agrees_between_erlang_and_config_test() ->
     ?assertNotEqual(nomatch, binary:match(Text, Declared),
                     {store_id_not_in_sys_config, Declared}).
 
+%% EVERY VARIABLE REFERENCE IN A RELX TEMPLATE IS A PLAIN NAME (mcl-chess#9).
+%%
+%% relx expands `vm.args.src' and `sys.config.src' with an awk whose loop is
+%% `while(match($0, "[$]{[^}]*}"))' and whose replacement pattern is BUILT FROM
+%% the text between the braces. A shell-style form in there (`:?` for a required
+%% variable, `:-` for a default) becomes a regular expression where those
+%% characters mean something else, the pattern then matches nothing, the loop
+%% never advances, and the container spins at one core before printing a line.
+%% That is how 0.7.0's first deployment failed, from a COMMENT in
+%% `vm.args.src', so comments are checked too: the awk does not skip them.
+%%
+%% A `:-' default does terminate the loop, so it is only the required-variable
+%% form that hangs. Both are refused here, because a default is expanded by the
+%% awk's own branching and by nothing else, and one rule is easier to hold than
+%% a table of which forms happen to work.
+template_variable_references_are_plain_names_test_() ->
+    [?_assertEqual({File, []}, {File, bad_references(shipped(File))})
+     || File <- ["config/vm.args.src", "config/sys.config.src"]].
+
+bad_references(Text) ->
+    Tokens = captured(re:run(Text, "\\$\\{([^}]*)\\}", [global, {capture, all_but_first, binary}])),
+    [Token || [Token] <- Tokens, not plain_name(Token)].
+
+captured({match, Captures}) -> Captures;
+captured(nomatch) -> [].
+
+plain_name(Token) ->
+    re:run(Token, "^[A-Z_][A-Z0-9_]*$", [{capture, none}]) =:= match.
+
 %% The data directory must be somewhere, and a laptop default is fine. What is
 %% not fine is shipping that default to a node, which is why the generated
 %% compose file mounts a volume and sets the variable this reads.

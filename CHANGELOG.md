@@ -5,6 +5,22 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.1] - 2026-10-20
+
+### Fixed
+
+- **A comment in `config/vm.args.src` stopped 0.7.0 from booting (mcl-chess#9):**
+  the comment quoted the shell-style required-variable form inside
+  dollar-brace braces. relx expands `vm.args.src` with an awk that derives its
+  substitution pattern from the text between the braces, so `:?` became a
+  quantifier on the colon, the pattern matched nothing, and the loop never
+  advanced: the container ran at one core, printed no line, and never created
+  its health socket. Comments are not skipped by that awk. The comment now says
+  the same thing without a dollar-brace form, and
+  `mcl_chess_service_tests:template_variable_references_are_plain_names_test_`
+  refuses any non-plain token in `vm.args.src` and `sys.config.src`, comments
+  included.
+
 ## [0.7.0] - 2026-10-20
 
 ### Added
