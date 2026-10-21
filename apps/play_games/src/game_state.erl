@@ -57,18 +57,7 @@ new(GameId) ->
 %% reload (business fields under `data'). Read tolerantly.
 -spec apply_event(t(), map()) -> t().
 apply_event(State, #{event_type := <<"game_initiated_v1">>} = Event) ->
-    Data = event_data(Event),
-    State#game_state{
-        protocol = maps:get(protocol, Data, <<"chess">>),
-        time_control = maps:get(time_control, Data),
-        seats = maps:get(seats, Data, State#game_state.seats),
-        position = maps:get(position, Data, State#game_state.position),
-        to_move = maps:get(to_move, Data, State#game_state.to_move),
-        ply = maps:get(ply, Data, 0),
-        clocks = maps:get(clocks, Data, State#game_state.clocks),
-        status = maps:get(status, Data),
-        initiator_node_id = maps:get(initiator_node_id, Data, <<>>),
-        at_ms = maps:get(at_ms, Data, 0)};
+    fold_initiated(State, event_data(Event));
 apply_event(State, #{event_type := <<"seat_claimed_v1">>} = Event) ->
     Data = event_data(Event),
     State#game_state{seats = maps:get(seats, Data),
@@ -79,36 +68,12 @@ apply_event(State, #{event_type := <<"seat_claimed_v1">>} = Event) ->
 apply_event(State, #{event_type := <<"seat_refused_v1">>} = Event) ->
     record_refusal(State, maps:get(player_node_id, event_data(Event)));
 apply_event(State, #{event_type := <<"game_started_v1">>} = Event) ->
-    Data = event_data(Event),
-    State#game_state{
-        seats = (State#game_state.seats)#{white => maps:get(white_node_id, Data),
-                                         black => maps:get(black_node_id, Data)},
-        position = maps:get(position, Data),
-        to_move = maps:get(to_move, Data),
-        ply = maps:get(ply, Data),
-        clocks = maps:get(clocks, Data),
-        %% The counter starts at zero and the repetition history at the start
-        %% position, which is a position the game can return to.
-        halfmove_clock = 0,
-        hashes = [maps:get(position_hash, Data)],
-        status = maps:get(status, Data),
-        at_ms = maps:get(at_ms, Data, State#game_state.at_ms)};
+    fold_started(State, event_data(Event));
 %% A played move is the only event that advances the position, the counter and
 %% the repetition history. The counter is the event's own value rather than an
 %% increment here: the desk computed it, and a replay must fold the same one.
 apply_event(State, #{event_type := <<"move_played_v1">>} = Event) ->
-    Data = event_data(Event),
-    Hash = maps:get(position_hash, Data),
-    State#game_state{
-        position = maps:get(fen_after, Data),
-        to_move = maps:get(to_move, Data),
-        ply = maps:get(ply, Data),
-        clocks = maps:get(clocks, Data),
-        halfmove_clock = maps:get(halfmove_clock, Data),
-        hashes = advance_hashes(State#game_state.hashes,
-                                maps:get(halfmove_clock, Data), Hash),
-        status = maps:get(status, Data),
-        at_ms = maps:get(at_ms, Data, State#game_state.at_ms)};
+    fold_move_played(State, event_data(Event));
 %% A move refusal is the same evidence class as a seat refusal: nothing about
 %% the game changes, and the count is what bounds it. `at_ms' is deliberately
 %% left alone, so the turn in progress keeps the moment it began and a refused
@@ -126,7 +91,56 @@ apply_event(State, #{event_type := <<"clock_flagged_v1">>} = Event) ->
         flagged_node_id = maps:get(player_node_id, Data, <<>>),
         at_ms = maps:get(at_ms, Data, State#game_state.at_ms)};
 apply_event(State, #{event_type := <<"game_ended_v1">>} = Event) ->
+    fold_ended(State, event_data(Event));
+apply_event(State, #{event_type := <<"game_archived_v1">>} = Event) ->
     Data = event_data(Event),
+    State#game_state{status = maps:get(status, Data),
+                     at_ms = maps:get(at_ms, Data, State#game_state.at_ms)};
+apply_event(State, _Event) ->
+    State.
+
+fold_initiated(State, Data) ->
+    State#game_state{
+        protocol = maps:get(protocol, Data, <<"chess">>),
+        time_control = maps:get(time_control, Data),
+        seats = maps:get(seats, Data, State#game_state.seats),
+        position = maps:get(position, Data, State#game_state.position),
+        to_move = maps:get(to_move, Data, State#game_state.to_move),
+        ply = maps:get(ply, Data, 0),
+        clocks = maps:get(clocks, Data, State#game_state.clocks),
+        status = maps:get(status, Data),
+        initiator_node_id = maps:get(initiator_node_id, Data, <<>>),
+        at_ms = maps:get(at_ms, Data, 0)}.
+
+fold_started(State, Data) ->
+    State#game_state{
+        seats = (State#game_state.seats)#{white => maps:get(white_node_id, Data),
+                                         black => maps:get(black_node_id, Data)},
+        position = maps:get(position, Data),
+        to_move = maps:get(to_move, Data),
+        ply = maps:get(ply, Data),
+        clocks = maps:get(clocks, Data),
+        %% The counter starts at zero and the repetition history at the start
+        %% position, which is a position the game can return to.
+        halfmove_clock = 0,
+        hashes = [maps:get(position_hash, Data)],
+        status = maps:get(status, Data),
+        at_ms = maps:get(at_ms, Data, State#game_state.at_ms)}.
+
+fold_move_played(State, Data) ->
+    Hash = maps:get(position_hash, Data),
+    State#game_state{
+        position = maps:get(fen_after, Data),
+        to_move = maps:get(to_move, Data),
+        ply = maps:get(ply, Data),
+        clocks = maps:get(clocks, Data),
+        halfmove_clock = maps:get(halfmove_clock, Data),
+        hashes = advance_hashes(State#game_state.hashes,
+                                maps:get(halfmove_clock, Data), Hash),
+        status = maps:get(status, Data),
+        at_ms = maps:get(at_ms, Data, State#game_state.at_ms)}.
+
+fold_ended(State, Data) ->
     State#game_state{
         position = maps:get(fen_after, Data, State#game_state.position),
         ply = maps:get(ply, Data, State#game_state.ply),
@@ -135,13 +149,7 @@ apply_event(State, #{event_type := <<"game_ended_v1">>} = Event) ->
         outcome = maps:get(outcome, Data),
         winner_node_id = maps:get(winner_node_id, Data, <<>>),
         end_reason = maps:get(reason, Data),
-        at_ms = maps:get(at_ms, Data, State#game_state.at_ms)};
-apply_event(State, #{event_type := <<"game_archived_v1">>} = Event) ->
-    Data = event_data(Event),
-    State#game_state{status = maps:get(status, Data),
-                     at_ms = maps:get(at_ms, Data, State#game_state.at_ms)};
-apply_event(State, _Event) ->
-    State.
+        at_ms = maps:get(at_ms, Data, State#game_state.at_ms)}.
 
 %% @doc The clocks after this player's turn ends at `At'.
 %%
