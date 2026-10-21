@@ -125,17 +125,23 @@ fn perft_matches_the_published_counts() {
     let deep = !cfg!(debug_assertions);
     for (name, fen, counts) in POSITIONS {
         let board = Board::from_str(fen).unwrap_or_else(|_| panic!("{name} must parse"));
-        for (index, expected) in counts.iter().enumerate() {
-            let depth = index as u8 + 1;
-            if *expected == 0 || (depth > 3 && !deep) {
-                continue;
-            }
-            assert_eq!(
-                cozy_perft(&board, depth),
-                *expected,
-                "{name}, depth {depth}: the library disagrees with the published count"
-            );
+        assert_published_counts(name, &board, counts, deep);
+    }
+}
+
+/// Depth `d` is the table's entry `d - 1`; a `0` there means this table makes no
+/// claim about that depth, and a debug build only walks the shallow ones.
+fn assert_published_counts(name: &str, board: &Board, counts: &[u64; 5], deep: bool) {
+    for (index, expected) in counts.iter().enumerate() {
+        let depth = index as u8 + 1;
+        if *expected == 0 || (depth > 3 && !deep) {
+            continue;
         }
+        assert_eq!(
+            cozy_perft(board, depth),
+            *expected,
+            "{name}, depth {depth}: the library disagrees with the published count"
+        );
     }
 }
 

@@ -12,3 +12,8 @@ crate-type = ["cdylib"]
 [dependencies]
 cozy-chess = "0.3.4"
 rustler = "0.34"
+
+[lints.clippy]
+excessive_nesting = "deny"
+cognitive_complexity = "deny"
+too_many_lines = "deny"
