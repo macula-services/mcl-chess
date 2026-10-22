@@ -47,17 +47,21 @@
 <rect class="bg" x="0" y="0" width="1080" height="720"/>
 <rect class="bound" x="24" y="40" width="576" height="560" rx="12"/>
 <text class="t-bound" x="40" y="62">The mcl-chess box [mcl_om mesh service, one OCI container]</text>
-<rect class="b-sys" x="44" y="76" width="536" height="110" rx="10"/>
+<rect class="b-sys" x="44" y="76" width="536" height="146" rx="10"/>
 <text class="t-name" x="60" y="104">mcl_chess (boot app)</text>
 <text class="t-type" x="60" y="122">[OTP release, mcl_om_service]</text>
-<text class="t-desc" x="60" y="146">Opens the event store before mcl_om:boot/1, supervises the three departments,</text>
-<text class="t-desc" x="60" y="162">/health, and advertises the capabilities, naming any missing D25 grant.</text>
-<rect class="b-cmp" x="44" y="206" width="168" height="120" rx="10"/>
+<text class="t-desc" x="60" y="146">Opens the event store before mcl_om:boot/1 and starts no child of its own:</text>
+<text class="t-desc" x="60" y="162">the departments are application dependencies. Serves /health and</text>
+<text class="t-desc" x="60" y="178">advertises the capabilities, naming any missing D25 grant.</text>
+<rect class="b-cmp" x="44" y="206" width="168" height="156" rx="10"/>
 <text class="t-name" x="60" y="234">play_games</text>
 <text class="t-type" x="60" y="252">[CMD: commands]</text>
-<text class="t-desc" x="60" y="276">One desk per slice, from</text>
-<text class="t-desc" x="60" y="292">game initiation to archive.</text>
-<text class="t-desc" x="60" y="308">The only writer of events</text>
+<text class="t-desc" x="60" y="276">One desk per slice, from game</text>
+<text class="t-desc" x="60" y="292">initiation to archive, the only</text>
+<text class="t-desc" x="60" y="308">writer of events. Nine</text>
+<text class="t-desc" x="60" y="324">emit_*_to_mesh handlers are the</text>
+<text class="t-desc" x="60" y="340">only publishers, seated by the</text>
+<text class="t-desc" x="60" y="356">PM registrar</text>
 <rect class="b-cmp" x="228" y="206" width="168" height="120" rx="10"/>
 <text class="t-name" x="244" y="234">project_games</text>
 <text class="t-type" x="244" y="252">[PRJ: projections]</text>

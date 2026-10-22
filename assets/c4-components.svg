@@ -115,10 +115,10 @@
 <text class="t-desc" x="48" y="718">validate_move(Fen, Uci), apply_move(Fen, Uci) -&gt; Fen', the Zobrist</text>
 <text class="t-desc" x="48" y="734">hash and the halfmove-reset flag, position_hash(Fen), status(Fen,</text>
 <text class="t-desc" x="48" y="750">Halfmove) -&gt; active | checkmate | stalemate | insufficient_material</text>
-<text class="t-desc" x="48" y="766">| seventy_five_moves. Legal-only generation.</text>
+<text class="t-desc" x="48" y="766">| seventy_five_moves; cannot_mate(Fen, Colour). Legal-only generation.</text>
 <rect class="b-mac" x="512" y="648" width="456" height="126" rx="10"/>
 <text class="t-name" x="528" y="676">evoq 1.27.0</text>
-<text class="t-type" x="528" y="694">[the only application surface]</text>
+<text class="t-type" x="528" y="694">[the application surface]</text>
 <text class="t-desc" x="528" y="718">evoq_command, evoq_event, evoq_aggregate, evoq_event_handler,</text>
 <text class="t-desc" x="528" y="734">evoq_process_manager, evoq_command_router, evoq_bit_flags. The</text>
 <text class="t-desc" x="528" y="750">adapter is named in sys.config only: no desk touches the store.</text>

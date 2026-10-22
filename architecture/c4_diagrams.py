@@ -166,12 +166,12 @@ def containers():
     """Level 2. One box, one OCI container, three departments and a store."""
     d = Diagram("c4-containers.svg", "mcl-chess containers", 1080, 720)
     d.bound(24, 40, 576, 560, "The mcl-chess box [mcl_om mesh service, one OCI container]")
-    d.box("b-sys", 44, 76, 536, 110, "mcl_chess (boot app)", "[OTP release, mcl_om_service]",
-          ["Opens the event store before mcl_om:boot/1, supervises the three departments,",
-           "/health, and advertises the capabilities, naming any missing D25 grant."])
-    d.box("b-cmp", 44, 206, 168, 120, "play_games", "[CMD: commands]",
-          ["One desk per slice, from", "game initiation to archive.",
-           "The only writer of events"])
+    d.box("b-sys", 44, 76, 536, 146, "mcl_chess (boot app)", "[OTP release, mcl_om_service]",
+          ["Opens the event store before mcl_om:boot/1 and starts no child of its own:",
+           "the departments are application dependencies. Serves /health and",
+           "advertises the capabilities, naming any missing D25 grant."])
+    d.box("b-cmp", 44, 206, 168, 156, "play_games", "[CMD: commands]",
+          ["One desk per slice, from game", "initiation to archive, the only", "writer of events. Nine", "emit_*_to_mesh handlers are the", "only publishers, seated by the", "PM registrar"])
     d.box("b-cmp", 228, 206, 168, 120, "project_games", "[PRJ: projections]",
           ["One projection per event,", "writing the read model and",
            "the computed status label"])
@@ -255,8 +255,8 @@ def components():
           ["validate_move(Fen, Uci), apply_move(Fen, Uci) -> Fen', the Zobrist",
            "hash and the halfmove-reset flag, position_hash(Fen), status(Fen,",
            "Halfmove) -> active | checkmate | stalemate | insufficient_material",
-           "| seventy_five_moves. Legal-only generation."], code=True)
-    d.box("b-mac", 512, 648, 456, 126, "evoq 1.27.0", "[the only application surface]",
+           "| seventy_five_moves; cannot_mate(Fen, Colour). Legal-only generation."], code=True)
+    d.box("b-mac", 512, 648, 456, 126, "evoq 1.27.0", "[the application surface]",
           ["evoq_command, evoq_event, evoq_aggregate, evoq_event_handler,",
            "evoq_process_manager, evoq_command_router, evoq_bit_flags. The",
            "adapter is named in sys.config only: no desk touches the store."])

@@ -32,14 +32,14 @@ Legend, the same in all three diagrams: amber is the element in scope, lavender-
 
 | Container | Technology | Responsibility | Status |
 | --- | --- | --- | --- |
-| mcl_chess (boot app) | mcl_om mesh service, OCI image, OTP release | Opens the event store before `mcl_om:boot/1`, supervises the three departments, serves `/health`, advertises the capabilities and names any missing D25 grant | built (WP2) |
+| mcl_chess (boot app) | mcl_om mesh service, OCI image, OTP release | Opens the event store before `mcl_om:boot/1`, starts no child of its own (the departments are application dependencies), serves `/health`, advertises the capabilities and names any missing D25 grant | built (WP2) |
 | play_games | CMD app, evoq | One desk per lifecycle slice, from game initiation to archive. The only writer of events | built for initiate, claim, start, move, resign, end, withdraw, flag and archive (WP2 to WP6). It also hosts the rules engine's BEAM module (WP4) |
 | project_games | PRJ app, evoq | One projection per event, writing the read model and the status label computed at projection time | built for every state-changing event (WP2, WP3, WP5). A refusal is evidence, not state, and is not projected |
 | query_games | QRY app, esqlite | `get_game_by_id`, by status, page, by player. Answers from the read model, never from events | `get_game_by_id` built (WP2); the other three are later |
 | Event store | reckon_db, volume `/data` | The source of truth: one stream per game, replayed to rebuild the aggregate on demand | built (WP2) |
 | Read model | SQLite through esqlite | Board, move list, clocks, status and label: what queries serve and what a board viewer rebuilds from | built: birth, seats, start, every move and the end projected (WP2, WP3, WP5). The move list is its own table (see the migration note below) |
-| Identity and realm admission | Node identity key, D25 grants | The identity key names the service to the realm; a procedure without its grant is refused at the boundary | wired (WP2); the three grants are an operator step (WP8) |
-| ghcr.io | External | The release image by digest, signed and attested | planned (WP2) |
+| Identity and realm admission | Node identity key, D25 grants | The identity key names the service to the realm; a procedure without its grant is refused at the boundary | wired (WP2); the six grants, one per procedure, are an operator step (WP8) |
+| ghcr.io | External | The release image, built and pushed by `build-push.yml`, signed and attested, then pinned by digest | built |
 | macula-fleet | Planned, WP8 | The fleet definition: edge config env, `reconcile.manifest` entry, digest pin, canary first | out of this range |
 
 **One container, one box.** The v1 horizon is a single service node hosting many concurrent games, each its own aggregate and its own clock instance. Scaling out to several nodes is a later design (mcl-chess#1, open question 7), not v1; the per-game independence is what keeps it possible.
@@ -64,11 +64,12 @@ Legend, the same in all three diagrams: amber is the element in scope, lavender-
 | `game_clock_pm` | `evoq_process_manager`, one per game | White's clock starts, the mover's stops and the opponent's starts, both stop at the end; the deadline arrives in `handle_info/2`, the hook evoq 1.27.0 added. It is also what finishes a sequence a crash left half done (see the decisions below) | built (WP6) |
 | `game_retention_pm` | `evoq_process_manager`, one per game | Holds the one deadline a policy cannot: the retention window after `game_ended_v1`, then `archive_game_v1` | built (WP6) |
 | `play_games_pm_registrar` | `gen_server` child of the CMD supervisor | Registers both process managers with evoq's PM router, and registers them again if the router restarts (evoq#9) | built (WP6) |
-| `mcl_chess_facts` | Module, the only one naming a topic | Owns every topic and every translation. Desks emit through it; nothing else names a topic | built: nine facts (WP2, WP3, WP5, WP6) |
-| `mcl_chess_rules` | Rust NIF over cozy-chess, stateless | `validate_move/2`, `apply_move/2` returning the FEN, its Zobrist hash and whether the move reset the halfmove counter, `position_hash/1`, `status/2`. Legal-only generation | built (WP4) and called by `submit_move` and the end policy (WP5) |
-| evoq 1.27.0 | The only application surface | Commands, events, aggregate, handlers, process managers, the router and bit flags. The adapter is named in `sys.config` only: no desk touches the store | built (released 2026-10-19) |
+| `emit_*_to_mesh` (nine) | `evoq_event_handler`, `replay_policy -> skip` | The only publishers: one per fact, each reading the recorded event and publishing it through `mcl_chess_facts`. A desk dispatches the command; the emitter turns the event into a fact | built (WP2, WP3, WP5, WP6) |
+| `mcl_chess_facts` | Module, the only one naming a topic | Owns every topic and every translation. The nine `emit_*_to_mesh` handlers publish through it; nothing else names a topic | built: nine facts (WP2, WP3, WP5, WP6) |
+| `mcl_chess_rules` | Rust NIF over cozy-chess, stateless | `validate_move/2`, `apply_move/2` returning the FEN, its Zobrist hash and whether the move reset the halfmove counter, `position_hash/1`, `status/2` and `cannot_mate/2`. Legal-only generation | built (WP4) and called by `submit_move` and the end policy (WP5) |
+| evoq 1.27.0 | The application surface | Commands, events, aggregate, handlers, process managers, the router and bit flags. The adapter is named in `sys.config` only: no desk touches the store | built (released 2026-10-19) |
 
-**evoq is the only application surface.** The `reckon_evoq_adapter` is named in `config/sys.config.src` and nowhere else. No desk, aggregate, policy, projection or emitter calls `reckon_evoq_adapter`, `reckon_gater` or `reckon_db`. Two gaps used to make that impossible, and both are closed as of evoq 1.27.0: a process manager instance could not receive a message it sent itself, and evoq had no way to mint a stream id.
+**evoq is the only application surface.** The `reckon_evoq_adapter` is named in `config/sys.config.src` and nowhere else. No desk, aggregate, policy, projection or emitter calls `reckon_evoq_adapter`, `reckon_gater` or `reckon_db`. Commands do call `reckon_gater_stream_id:validate/1`, which is pure: it checks the shape of a stream id and opens nothing. Two gaps used to make that impossible, and both are closed as of evoq 1.27.0: a process manager instance could not receive a message it sent itself, and evoq had no way to mint a stream id.
 
 **Where the station list comes from.** It is not in `config/sys.config.src`: `mcl_om` reads `MACULA_STATION_SEEDS` and `MACULA_STATION_NODE_IDS` from the environment at boot, paired index for index, so this repository pins no station and the list may be any length.
 
