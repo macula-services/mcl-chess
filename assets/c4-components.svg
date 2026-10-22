@@ -55,7 +55,7 @@
 <text class="t-desc" x="48" y="172">maybe_* handler, never in a caller.</text>
 <rect class="b-cmp" x="512" y="70" width="456" height="110" rx="10"/>
 <text class="t-code" x="528" y="98">mcl_chess_facts</text>
-<text class="t-type" x="528" y="116">[the only module naming the mesh SDK]</text>
+<text class="t-type" x="528" y="116">[the only module naming a topic]</text>
 <text class="t-desc" x="528" y="140">Owns every topic and every translation: the facts contract in</text>
 <text class="t-desc" x="528" y="156">one place, pinned by mcl_chess_facts_tests. Desks emit through</text>
 <text class="t-desc" x="528" y="172">it; nothing else names a topic.</text>

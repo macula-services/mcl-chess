@@ -169,15 +169,15 @@ def containers():
     d.box("b-sys", 44, 76, 536, 110, "mcl_chess (boot app)", "[OTP release, mcl_om_service]",
           ["Opens the event store before mcl_om:boot/1, supervises the three departments,",
            "/health, and advertises the capabilities, naming any missing D25 grant."])
-    d.box("b-cmp", 44, 206, 168, 120, "play_games", "[CMD: commands, events, policies]",
+    d.box("b-cmp", 44, 206, 168, 120, "play_games", "[CMD: commands]",
           ["One desk per slice, from", "game initiation to archive.",
            "The only writer of events"])
     d.box("b-cmp", 228, 206, 168, 120, "project_games", "[PRJ: projections]",
           ["One projection per event,", "writing the read model and",
            "the computed status label"])
     d.box("b-cmp", 412, 206, 168, 120, "query_games", "[QRY: read model]",
-          ["get_game_by_id, by status,", "page, by player. Answers",
-           "from SQLite, never events"])
+          ["get_game_by_id today; by", "status, page and player are",
+           "later. Answers from SQLite,", "never events"])
     d.box("b-cmp", 44, 346, 250, 120, "Event store", "[reckon_db, volume /data]",
           ["The source of truth: one stream", "per game, replayed to rebuild",
            "the aggregate on demand"])
@@ -224,7 +224,7 @@ def components():
           ["Replays its own stream to the state: seats, position, to_move,",
            "ply, clocks, status flags, outcome. Every guard lives in a",
            "maybe_* handler, never in a caller."], code=True)
-    d.box("b-cmp", 512, 70, 456, 110, "mcl_chess_facts", "[the only module naming the mesh SDK]",
+    d.box("b-cmp", 512, 70, 456, 110, "mcl_chess_facts", "[the only module naming a topic]",
           ["Owns every topic and every translation: the facts contract in",
            "one place, pinned by mcl_chess_facts_tests. Desks emit through",
            "it; nothing else names a topic."], code=True)

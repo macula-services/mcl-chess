@@ -54,7 +54,7 @@
 <text class="t-desc" x="60" y="162">/health, and advertises the capabilities, naming any missing D25 grant.</text>
 <rect class="b-cmp" x="44" y="206" width="168" height="120" rx="10"/>
 <text class="t-name" x="60" y="234">play_games</text>
-<text class="t-type" x="60" y="252">[CMD: commands, events, policies]</text>
+<text class="t-type" x="60" y="252">[CMD: commands]</text>
 <text class="t-desc" x="60" y="276">One desk per slice, from</text>
 <text class="t-desc" x="60" y="292">game initiation to archive.</text>
 <text class="t-desc" x="60" y="308">The only writer of events</text>
@@ -67,9 +67,10 @@
 <rect class="b-cmp" x="412" y="206" width="168" height="120" rx="10"/>
 <text class="t-name" x="428" y="234">query_games</text>
 <text class="t-type" x="428" y="252">[QRY: read model]</text>
-<text class="t-desc" x="428" y="276">get_game_by_id, by status,</text>
-<text class="t-desc" x="428" y="292">page, by player. Answers</text>
-<text class="t-desc" x="428" y="308">from SQLite, never events</text>
+<text class="t-desc" x="428" y="276">get_game_by_id today; by</text>
+<text class="t-desc" x="428" y="292">status, page and player are</text>
+<text class="t-desc" x="428" y="308">later. Answers from SQLite,</text>
+<text class="t-desc" x="428" y="324">never events</text>
 <rect class="b-cmp" x="44" y="346" width="250" height="120" rx="10"/>
 <text class="t-name" x="60" y="374">Event store</text>
 <text class="t-type" x="60" y="392">[reckon_db, volume /data]</text>

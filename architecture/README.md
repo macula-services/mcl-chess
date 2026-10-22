@@ -2,7 +2,7 @@
 
 *This exists so two strangers' agents can play a timed game of chess on the mesh with a referee neither of them has to trust the other to be.*
 
-**Status: 2026-10-19, WP4.** The Design Gate is settled (mcl-chess#1, answer 6 approved the two evoq hooks on 12 Oct), WP0 shipped them (evoq 1.27.0 and reckon_evoq 2.8.0 are released), WP2 built the walking skeleton, WP3 seated and started a game, and WP4 built the rules engine: a Rust NIF over cozy-chess, cross-checked against the published perft counts and loadable from the assembled release. It is not wired into a desk yet, which is WP5's work. Everything else below still says *planned* and names the work package that builds it. What is planned is tracked in [#1](https://github.com/macula-services/mcl-chess/issues/1).
+**Status: 2026-10-22, WP7 built.** The Design Gate is settled (mcl-chess#1, answer 6 approved the two evoq hooks on 12 Oct), WP0 shipped them (evoq 1.27.0 and reckon_evoq 2.8.0 are released), WP2 built the walking skeleton, WP3 seated and started a game, WP4 built the rules engine (a Rust NIF over cozy-chess, cross-checked against the published perft counts and loadable from the assembled release), WP5 played and ended a game, WP6 added the clock, flagging, retention and archiving, and WP7 pinned the nine facts on the mesh. The rules engine is called by `submit_move` and the end policy. What is not built is the fleet definition and the realm grants (WP8) and the live game between two agents; the tables below say which elements are still planned, and all of it is tracked in [#1](https://github.com/macula-services/mcl-chess/issues/1).
 
 `mcl-chess` is an **mcl_om mesh service**, like any `mcl-*` service: one OTP release in one OCI container on its own box, with its node identity, realm admission, mesh pool and `/health` from `mcl-om`. It joins the mesh through pinned stations and it is not part of any station.
 
@@ -14,7 +14,7 @@ Legend, the same in all three diagrams: amber is the element in scope, lavender-
 
 | Element | Kind | Role | Status |
 | --- | --- | --- | --- |
-| mcl-chess | In scope | The referee: validates, clocks and sequences one game, records a disputable transcript, publishes facts. Never plays, never picks a move, never contacts an agent | built (WP2 to WP5): initiate, claim a seat, start, move, resign, end, withdraw; the clock that flags and retention are WP6 |
+| mcl-chess | In scope | The referee: validates, clocks and sequences one game, records a disputable transcript, publishes facts. Never plays, never picks a move, never contacts an agent | built (WP2 to WP6): initiate, claim a seat, start, move, resign, end, flag, withdraw and retention archive |
 | Player A's agent, Player B's agent | External | The two seats. An agent picks its moves; calling `claim_seat` is its consent to the time control | external |
 | macula-mcp | External | Each agent's harness: how it reaches the mesh, and the scheduler it waits on. The thinking half of the game lives here, not in the service | external, built |
 | Macula mesh | Macula infrastructure | The pinned stations are the entry points (QUIC); the union of stations routes an org procedure; the facts travel its topics | built |
@@ -33,7 +33,7 @@ Legend, the same in all three diagrams: amber is the element in scope, lavender-
 | Container | Technology | Responsibility | Status |
 | --- | --- | --- | --- |
 | mcl_chess (boot app) | mcl_om mesh service, OCI image, OTP release | Opens the event store before `mcl_om:boot/1`, supervises the three departments, serves `/health`, advertises the capabilities and names any missing D25 grant | built (WP2) |
-| play_games | CMD app, evoq | One desk per lifecycle slice, from game initiation to archive. The only writer of events | built for initiate, claim, start, move, resign, end and withdraw (WP2 to WP5); flag and archive are WP6. It also hosts the rules engine's BEAM module (WP4) |
+| play_games | CMD app, evoq | One desk per lifecycle slice, from game initiation to archive. The only writer of events | built for initiate, claim, start, move, resign, end, withdraw, flag and archive (WP2 to WP6). It also hosts the rules engine's BEAM module (WP4) |
 | project_games | PRJ app, evoq | One projection per event, writing the read model and the status label computed at projection time | built for every state-changing event (WP2, WP3, WP5). A refusal is evidence, not state, and is not projected |
 | query_games | QRY app, esqlite | `get_game_by_id`, by status, page, by player. Answers from the read model, never from events | `get_game_by_id` built (WP2); the other three are later |
 | Event store | reckon_db, volume `/data` | The source of truth: one stream per game, replayed to rebuild the aggregate on demand | built (WP2) |
@@ -64,7 +64,7 @@ Legend, the same in all three diagrams: amber is the element in scope, lavender-
 | `game_clock_pm` | `evoq_process_manager`, one per game | White's clock starts, the mover's stops and the opponent's starts, both stop at the end; the deadline arrives in `handle_info/2`, the hook evoq 1.27.0 added. It is also what finishes a sequence a crash left half done (see the decisions below) | built (WP6) |
 | `game_retention_pm` | `evoq_process_manager`, one per game | Holds the one deadline a policy cannot: the retention window after `game_ended_v1`, then `archive_game_v1` | built (WP6) |
 | `play_games_pm_registrar` | `gen_server` child of the CMD supervisor | Registers both process managers with evoq's PM router, and registers them again if the router restarts (evoq#9) | built (WP6) |
-| `mcl_chess_facts` | Module, the only one naming the mesh SDK | Owns every topic and every translation. Desks emit through it; nothing else names a topic | built: nine facts (WP2, WP3, WP5, WP6) |
+| `mcl_chess_facts` | Module, the only one naming a topic | Owns every topic and every translation. Desks emit through it; nothing else names a topic | built: nine facts (WP2, WP3, WP5, WP6) |
 | `mcl_chess_rules` | Rust NIF over cozy-chess, stateless | `validate_move/2`, `apply_move/2` returning the FEN, its Zobrist hash and whether the move reset the halfmove counter, `position_hash/1`, `status/2`. Legal-only generation | built (WP4) and called by `submit_move` and the end policy (WP5) |
 | evoq 1.27.0 | The only application surface | Commands, events, aggregate, handlers, process managers, the router and bit flags. The adapter is named in `sys.config` only: no desk touches the store | built (released 2026-10-19) |
 
@@ -139,12 +139,12 @@ A read model file outlives a release, and `CREATE TABLE IF NOT EXISTS` does noth
 
 ## The rules engine, built in WP4
 
-`native/mcl_chess_rules/` is a Rustler cdylib over [cozy-chess](https://crates.io/crates/cozy-chess) 0.3.4 (MIT; the licensing decision is in the design of record). Four functions, no state, no dirty scheduler: a call is one FEN parse and one move-generation pass.
+`native/mcl_chess_rules/` is a Rustler cdylib over [cozy-chess](https://crates.io/crates/cozy-chess) 0.3.4 (MIT; the licensing decision is in the design of record). Five functions, no state, no dirty scheduler: a call is one FEN parse and one move-generation pass.
 
 | Layer | Where | What |
 | --- | --- | --- |
 | Pure rules | `native/mcl_chess_rules/src/rules.rs` | `validate_move/2`, `apply_move/2`, `position_hash/1`, `status/2` and `cannot_mate/2` over FEN and UCI strings. No BEAM types, so the perft suite runs as an ordinary `cargo test` |
-| NIF translation | `native/mcl_chess_rules/src/nif.rs` | The four `#[rustler::nif]` functions, compiled out under `cfg(test)`: the `enif_*` calls they make do not exist in a test binary |
+| NIF translation | `native/mcl_chess_rules/src/nif.rs` | The five `#[rustler::nif]` functions, compiled out under `cfg(test)`: the `enif_*` calls they make do not exist in a test binary |
 | BEAM module | `apps/play_games/src/mcl_chess_rules.erl` | Loads the `.so` from `play_games`' own `priv/lib` and is the module a desk calls |
 | Build | `scripts/build-nif.sh`, run by the umbrella's `compile` pre_hook | `cargo build --release --locked`, then the `.so` into `apps/play_games/priv/lib`, which relx copies into the release |
 
