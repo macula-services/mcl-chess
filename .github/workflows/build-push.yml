@@ -1,17 +1,18 @@
 # Build the OCI image for mcl-chess and push to the registry.
 #
-# TWO CHANNELS, AND A TAG PUSH MUST NOT TOUCH THE DEPLOY ONE.
+# TWO CHANNELS, AND A TAG PUSH MUST NOT TOUCH THE MAIN ONE.
 #
-#   push to main : publishes :latest        <- the deploy channel
+#   push to main : publishes :latest        <- what a hand-run deploy pulls
 #   push of v*   : publishes :<semver> ONLY <- the rollback archive
 #
-# The deployed compose tracks :latest under watchtower for zero-touch deploys,
-# and the semver tags stay published so a bad release can be pinned back to a
-# known one. A tag that also moved :latest would roll every box the moment a
-# release was cut, so cutting a release and deploying one are separate acts.
+# A push to main moves :latest and nothing else follows it: the fleet runs a
+# signed release pinned by digest, and mcl-chess's fleet definition is still
+# WP8. The semver tags stay published so a bad release can be pinned back to a
+# known one, and a tag that also moved :latest would pair a release with a
+# deploy, so cutting a release and deploying one are separate acts.
 #
-# NO PATH FILTER, ON PURPOSE. A docs-only push should not rebuild :latest and
-# restart every box, but `paths-ignore' cannot be trusted with that: on the push
+# NO PATH FILTER, ON PURPOSE. A docs-only push should not rebuild :latest, but
+# `paths-ignore' cannot be trusted with that: on the push
 # that CREATES a branch GitHub evaluates it on the head commit alone, so a first
 # push ending in a README edit silently built no image. scripts/is_image_push.sh
 # decides from the pushed range instead, and builds whenever it cannot tell.
@@ -33,8 +34,8 @@ on:
 # ONE IMAGE BUILD IN FLIGHT PER REF. Every push to main builds and pushes
 # :latest; without this, three quick commits run three builds that finish in
 # whatever order the runners please, and :latest ends up being whichever
-# finished LAST, not whichever was pushed last -- watchtower then rolls the
-# fleet onto an older commit and flaps. A sibling service hit exactly that live.
+# finished LAST, not whichever was pushed last, so a hand-run deploy could pull
+# an older image than the commit it was cut from.
 # A newer push to a branch or tag QUEUES behind the run in flight, never
 # cancels it: a cancelled run could already have pushed its image and not yet
 # signed it (mcl-om#9). Pull-request runs push nothing, so they still cancel.
@@ -98,7 +99,7 @@ jobs:
       # Emits the COMPLETE tag list, so the condition governs all of it. ONLY
       # MAIN FEEDS :latest AND ONLY A v* TAG FEEDS THE ARCHIVE: the workflow can
       # be run by hand from any branch, and a branch build must never overwrite
-      # the deploy channel, so any other ref is refused, naming it.
+      # what a hand-run deploy pulls, so any other ref is refused, naming it.
       - name: Set tags
         if: steps.gate.outputs.build == 'true'
         id: tag

@@ -29,21 +29,19 @@ services:
       # ⚠ THE SERVICE'S IDENTITY LIVES HERE. mcl_om generates the node key on
       # first boot and loads it on every boot after. The image declares this
       # path a VOLUME, and with nothing mounted docker gives each new container
-      # a fresh anonymous one, so every recreate (watchtower does them as
-      # routine) would mint a new node id while the service looks healthy.
+      # a fresh anonymous one, so every recreate would mint a new node id
+      # while the service looks healthy.
       - secrets:/etc/mcl/secrets
       # ⚠ REQUIRED, BECAUSE THIS SERVICE OPENS A STORE. Without the mount the
       # record lives inside the container and every recreate destroys it, which
-      # is the same as not keeping one, and watchtower recreates containers as a
-      # matter of routine.
+      # is the same as not keeping one, and a recreate destroys it.
       #
       # ON A BULK DRIVE, NOT THE ROOT FILESYSTEM, on any fleet node. Those boot
       # from a small eMMC with a root partition measured in single-digit gigabytes
       # and keep application data on /bulk0.
       - ${MCL_DATA:-/bulk0/mcl-chess}:/data
     labels:
-      # Only meaningful if you run watchtower: it pulls a new :latest and
-      # recreates the container. Harmless otherwise.
+      # Only meaningful if you run watchtower yourself. Harmless otherwise.
       - "com.centurylinklabs.watchtower.enable=true"
     environment:
       # No default. A service that guesses its realm announces itself where

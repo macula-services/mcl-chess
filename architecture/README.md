@@ -18,7 +18,7 @@ Legend, the same in all three diagrams: amber is the element in scope, lavender-
 | Player A's agent, Player B's agent | External | The two seats. An agent picks its moves; calling `claim_seat` is its consent to the time control | external |
 | macula-mcp | External | Each agent's harness: how it reaches the mesh, and the scheduler it waits on. The thinking half of the game lives here, not in the service | external, built |
 | Macula mesh | Macula infrastructure | The pinned stations are the entry points (QUIC); the union of stations routes an org procedure; the facts travel its topics | built |
-| macula-realm | Macula infrastructure | Admits the org `mcl-chess` and issues the D25 provider grant per procedure; a call without one is refused at the boundary | built |
+| macula-realm | Macula infrastructure | Admits the org `mcl-chess` and issues the D25 provider grant per procedure; a call without that grant is refused at the boundary | built |
 | Anyone watching | External | Other agents, board viewers, a future reputation division: they read the facts, never the service's private state | external |
 | Future matchmaker | Planned, separate division | Decides who plays whom, then starts a game with pre-assigned seats through the command, never the wire. Nothing in this division pairs players | planned |
 
@@ -32,13 +32,13 @@ Legend, the same in all three diagrams: amber is the element in scope, lavender-
 
 | Container | Technology | Responsibility | Status |
 | --- | --- | --- | --- |
-| mcl_chess (boot app) | mcl_om mesh service, OCI image, OTP release | Opens the event store before `mcl_om:boot/1`, starts no child of its own (the departments are application dependencies), serves `/health`, advertises the capabilities and names any missing D25 grant | built (WP2) |
+| mcl_chess (boot app) | mcl_om mesh service, OCI image, OTP release | Opens the event store before `mcl_om:boot/1`, starts no child of its own (the departments are application dependencies), and serves `/health`. `mcl-chess/initiate_game`, `claim_seat`, `submit_move`, `resign_game`, `withdraw_game` and `get_game_by_id` are the service's own procedures, and the only ones; `mcl-om` adds `<org>/info` and `<org>/get_limits` to every service, both open, and `capabilities/0` is the list. Names any missing D25 grant | built (WP2) |
 | play_games | CMD app, evoq | One desk per lifecycle slice, from game initiation to archive. The only writer of events | built for initiate, claim, start, move, resign, end, withdraw, flag and archive (WP2 to WP6). It also hosts the rules engine's BEAM module (WP4) |
 | project_games | PRJ app, evoq | One projection per event, writing the read model and the status label computed at projection time | built for every state-changing event (WP2, WP3, WP5). A refusal is evidence, not state, and is not projected |
 | query_games | QRY app, esqlite | `get_game_by_id`, by status, page, by player. Answers from the read model, never from events | `get_game_by_id` built (WP2); the other three are later |
 | Event store | reckon_db, volume `/data` | The source of truth: one stream per game, replayed to rebuild the aggregate on demand | built (WP2) |
 | Read model | SQLite through esqlite | Board, move list, clocks, status and label: what queries serve and what a board viewer rebuilds from | built: birth, seats, start, every move and the end projected (WP2, WP3, WP5). The move list is its own table (see the migration note below) |
-| Identity and realm admission | Node identity key, D25 grants | The identity key names the service to the realm; a procedure without its grant is refused at the boundary | wired (WP2); the six grants, one per procedure, are an operator step (WP8) |
+| Identity and realm admission | Node identity key, D25 grants | The identity key names the service to the realm; a procedure without its grant is refused at the boundary | wired (WP2); the grants are an operator step (WP8) |
 | ghcr.io | External | The release image, built and pushed by `build-push.yml`, signed and attested, then pinned by digest | built |
 | macula-fleet | Planned, WP8 | The fleet definition: edge config env, `reconcile.manifest` entry, digest pin, canary first | out of this range |
 
@@ -67,9 +67,9 @@ Legend, the same in all three diagrams: amber is the element in scope, lavender-
 | `emit_*_to_mesh` (nine) | `evoq_event_handler`, `replay_policy -> skip` | The only publishers: one per fact, each reading the recorded event and publishing it through `mcl_chess_facts`. A desk dispatches the command; the emitter turns the event into a fact | built (WP2, WP3, WP5, WP6) |
 | `mcl_chess_facts` | Module, the only one naming a topic | Owns every topic and every translation. The nine `emit_*_to_mesh` handlers publish through it; nothing else names a topic | built: nine facts (WP2, WP3, WP5, WP6) |
 | `mcl_chess_rules` | Rust NIF over cozy-chess, stateless | `validate_move/2`, `apply_move/2` returning the FEN, its Zobrist hash and whether the move reset the halfmove counter, `position_hash/1`, `status/2` and `cannot_mate/2`. Legal-only generation | built (WP4) and called by `submit_move` and the end policy (WP5) |
-| evoq 1.27.0 | The application surface | Commands, events, aggregate, handlers, process managers, the router and bit flags. The adapter is named in `sys.config` only: no desk touches the store | built (released 2026-10-19) |
+| evoq 1.27.0 | Library, the CQRS framework | Commands, events, aggregate, handlers, process managers, the router and bit flags. The adapter is named in `sys.config` only: no desk touches the store | built (released 2026-10-19) |
 
-**evoq is the only application surface.** The `reckon_evoq_adapter` is named in `config/sys.config.src` and nowhere else. No desk, aggregate, policy, projection or emitter calls `reckon_evoq_adapter`, `reckon_gater` or `reckon_db`. Commands do call `reckon_gater_stream_id:validate/1`, which is pure: it checks the shape of a stream id and opens nothing. Two gaps used to make that impossible, and both are closed as of evoq 1.27.0: a process manager instance could not receive a message it sent itself, and evoq had no way to mint a stream id.
+**Only the adapter is hidden.** The `reckon_evoq_adapter` is named in `config/sys.config.src` and nowhere else, and no module in `apps/` calls it. Two other reckon modules are named where each belongs: `mcl_chess_app.erl` opens the store through `reckon_db_sup`, and the desks validate a stream id through `reckon_gater_stream_id:validate/1`, which is pure: it checks the shape of a stream id and opens nothing. Everything else goes through evoq. Two gaps used to make that impossible, and both are closed as of evoq 1.27.0: a process manager instance could not receive a message it sent itself, and evoq had no way to mint a stream id.
 
 **Where the station list comes from.** It is not in `config/sys.config.src`: `mcl_om` reads `MACULA_STATION_SEEDS` and `MACULA_STATION_NODE_IDS` from the environment at boot, paired index for index, so this repository pins no station and the list may be any length.
 
@@ -169,7 +169,7 @@ A read model file outlives a release, and `CREATE TABLE IF NOT EXISTS` does noth
 - [x] **Event-sourced, unlike mcl-mpong** (design of record, mcl-chess#1). mpong's "no event store" is a scoped waiver for a throwaway demo; chess is adversarial and needs replay, dispute and audit.
 - [x] **One authoritative referee.** No dual-host pairing: one service, one truth.
 - [x] **Consent by seat claim; seats are by color, not by role.** The initiator is not pinned to white.
-- [x] **Wire names `mcl-chess/<verb>`**, no `_v1` in the name; the version is a capability field (Design Gate answer 1).
+- [x] **Wire names `mcl-chess/<verb>`**, no `_v1` in the name; the version is a capability field (the Design Gate's first answer).
 - [x] **The two evoq hooks shipped** in evoq 1.27.0 and reckon_evoq 2.8.0, so WP6 needs no node-wide clock fallback and no hand-rolled stream id (Design Gate answer 6, WP0).
 - [x] **The pre-start withdraw archives directly** (WP2). The design of record splits the death slice along its trigger: `withdraw_game/` serves the initiator's pre-start withdraw and `archive_game/` is the retention path dispatched by a policy. WP2 built the first and the shared `game_archived_v1` event; the second arrives with the retention policy in WP6, which is the work package the design of record gives that policy to. Nothing was invented to bridge the gap, and there is no stub desk waiting for a caller.
 - [x] **The wire cannot seat anyone** (WP2 review). Consent is a seat claim, so `initiate_game_responder_v1` does not read `seats` at all: every call over the wire gives two empty seats. Seating two agents who never agreed, and then letting the clock forfeit them, is the harm the rule closes. The command keeps its `seats` field for the future matchmaker, which will need its own authorization to use it.
