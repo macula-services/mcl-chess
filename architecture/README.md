@@ -2,7 +2,7 @@
 
 *This exists so two strangers' agents can play a timed game of chess on the mesh with a referee neither of them has to trust the other to be.*
 
-**Status: 2026-10-22, WP7 built.** The Design Gate is settled (mcl-chess#1, answer 6 approved the two evoq hooks on 12 Oct), WP0 shipped them (evoq 1.27.0 and reckon_evoq 2.8.0 are released), WP2 built the walking skeleton, WP3 seated and started a game, WP4 built the rules engine (a Rust NIF over cozy-chess, cross-checked against the published perft counts and loadable from the assembled release), WP5 played and ended a game, WP6 added the clock, flagging, retention and archiving, and WP7 pinned the nine facts on the mesh. The rules engine is called by `submit_move` and the end policy. What is not built is the fleet definition and the realm grants (WP8) and the live game between two agents; the tables below say which elements are still planned, and all of it is tracked in [#1](https://github.com/macula-services/mcl-chess/issues/1).
+**Status: 2026-10-22, WP7 built.** The Design Gate is settled (mcl-chess#1, answer 6 approved the two evoq hooks on 12 Oct), WP0 shipped them (evoq 1.27.0 and reckon_evoq 2.8.0 are released), WP2 built the walking skeleton, WP3 seated and started a game, WP4 built the rules engine (a Rust NIF over cozy-chess, cross-checked against the published perft counts and loadable from the assembled release), WP5 played and ended a game, WP6 added the clock, flagging, retention and archiving, and WP7 pinned the nine facts on the mesh. The rules engine is called by `submit_move` and the end policy. What is not built is the realm grants (WP8) and the live game between two agents; the fleet definition exists, and macula-fleet runs a pinned digest of the release; the tables below say which elements are still planned, and all of it is tracked in [#1](https://github.com/macula-services/mcl-chess/issues/1).
 
 `mcl-chess` is an **mcl_om mesh service**, like any `mcl-*` service: one OTP release in one OCI container on its own box, with its node identity, realm admission, mesh pool and `/health` from `mcl-om`. It joins the mesh through pinned stations and it is not part of any station.
 
@@ -40,7 +40,7 @@ Legend, the same in all three diagrams: amber is the element in scope, lavender-
 | Read model | SQLite through esqlite | Board, move list, clocks, status and label: what queries serve and what a board viewer rebuilds from | built: birth, seats, start, every move and the end projected (WP2, WP3, WP5). The move list is its own table (see the migration note below) |
 | Identity and realm admission | Node identity key, D25 grants | The identity key names the service to the realm; a procedure without its grant is refused at the boundary | wired (WP2); the grants are an operator step (WP8) |
 | ghcr.io | External | The release image, built and pushed by `build-push.yml`, signed and attested, then pinned by digest | built |
-| macula-fleet | Planned, WP8 | The fleet definition: edge config env, `reconcile.manifest` entry, digest pin, canary first | out of this range |
+| macula-fleet | Runs it | The fleet row: the service's edge config env, `reconcile.manifest` entry and digest pin | canary first |
 
 **One container, one box.** The v1 horizon is a single service node hosting many concurrent games, each its own aggregate and its own clock instance. Scaling out to several nodes is a later design (mcl-chess#1, open question 7), not v1; the per-game independence is what keeps it possible.
 

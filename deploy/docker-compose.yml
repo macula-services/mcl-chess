@@ -41,7 +41,9 @@ services:
       # and keep application data on /bulk0.
       - ${MCL_DATA:-/bulk0/mcl-chess}:/data
     labels:
-      # Only meaningful if you run watchtower yourself. Harmless otherwise.
+      # Only meaningful to an operator whose own tooling recreates a
+      # container when a new image appears; nothing in this repository reads
+      # it, and the reconciler replaces the container from a pinned digest. Harmless otherwise.
       - "com.centurylinklabs.watchtower.enable=true"
     environment:
       # No default. A service that guesses its realm announces itself where

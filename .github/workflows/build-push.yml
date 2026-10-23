@@ -2,16 +2,15 @@
 #
 # TWO CHANNELS, AND A TAG PUSH MUST NOT TOUCH THE MAIN ONE.
 #
-#   push to main : publishes :latest        <- what a hand-run deploy pulls
-#   push of v*   : publishes :<semver> ONLY <- the rollback archive
+#   push to main : publishes :main and :<sha>  <- what a hand-run deploy pulls
+#   push of v*   : publishes :<semver> ONLY     <- the rollback archive
 #
-# A push to main moves :latest and nothing else follows it: the fleet runs a
-# signed release pinned by digest, and mcl-chess's fleet definition is still
-# WP8. The semver tags stay published so a bad release can be pinned back to a
-# known one, and a tag that also moved :latest would pair a release with a
-# deploy, so cutting a release and deploying one are separate acts.
+# A push to main moves nothing the fleet follows: macula-fleet runs a signed
+# release pinned by digest, and CI commits the pin bump after a green v* tag.
+# The semver tags stay published so a bad release can be pinned back to a known
+# one, and cutting a release and deploying one stay separate acts.
 #
-# NO PATH FILTER, ON PURPOSE. A docs-only push should not rebuild :latest, but
+# NO PATH FILTER, ON PURPOSE. A docs-only push should not rebuild the image, but
 # `paths-ignore' cannot be trusted with that: on the push
 # that CREATES a branch GitHub evaluates it on the head commit alone, so a first
 # push ending in a README edit silently built no image. scripts/is_image_push.sh

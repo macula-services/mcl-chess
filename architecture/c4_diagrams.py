@@ -193,14 +193,14 @@ def containers():
           ["Entry through the stations in the", "environment (QUIC); its procedures are",
            "advertised as mcl-chess/<verb>; its facts", "travel the topics"])
     d.box("b-mac", 860, 232, 340, 120, "macula-realm", "[Macula infrastructure]",
-          ["Org mcl-chess, the node endorsement", "and one D25 grant per published",
+          ["Org mcl-chess, the node endorsement", "and a D25 grant per published",
            "procedure"])
     d.box("b-ext", 860, 372, 340, 120, "ghcr.io", "[External: signed images]",
           ["The release image, by digest, signed", "and attested; the reconciler refuses",
            "an unsigned one on enforce"])
-    d.box("b-later", 860, 512, 340, 120, "macula-fleet", "[planned: WP8, out of this range]",
-          ["The fleet definition: edge config,", "reconcile.manifest entry, digest pin,",
-           "canary first"])
+    d.box("b-ext", 860, 512, 340, 120, "macula-fleet", "[deploys it]",
+          ["The service row: edge config env,", "reconcile.manifest entry, and a digest",
+           "pin, canary first"])
     d.edge("M128 392V416"); d.text("t-rel", 136, 408, "appends")
     d.edge("M368 376V416"); d.text("t-rel", 376, 400, "writes")
     d.edge("M588 376V400H440V416"); d.text("t-rel", 540, 394, "reads")
@@ -208,7 +208,7 @@ def containers():
     d.edge("M700 120H860"); d.text("t-rel", 780, 112, "advertises", anchor="middle")
     d.edge("M860 280H790V150H700"); d.text("t-rel", 786, 142, "admits, grants", anchor="middle")
     d.edge("M860 432H820V190H700"); d.text("t-rel", 786, 182, "the image it runs", anchor="middle")
-    d.edge("M1030 512V492", later=True); d.text("t-rel", 1038, 508, "pins")
+    d.edge("M1030 512V492"); d.text("t-rel", 1038, 508, "pins")
     d.text("t-desc", 40, 740, "One container, one box: the v1 horizon is a single service node hosting many concurrent games, each its own aggregate and")
     d.text("t-desc", 40, 758, "its own clock instance. Scaling out to several nodes is a later design, not v1; the per-game independence keeps it possible.")
     d.legend(800)
@@ -271,8 +271,8 @@ def components():
     d.edge("M137 180V206"); d.text("t-rel", 145, 198, "every handler guards on the state")
     d.edge("M482 446V438H522V418"); d.text("t-rel", 452, 432, "dispatches the next command", anchor="end")
     d.edge("M512 630H504V428H560V418"); d.text("t-rel", 600, 430, "flag_clock_v1")
-    d.edge("M940 446V190"); d.text("t-rel", 932, 300, "publishes", anchor="end")
-    d.edge("M488 812H500V656H512"); d.text("t-rel", 508, 700, "registers both", rotate=-90)
+    d.edge("M940 446V190"); d.text("t-rel", 932, 380, "publishes", anchor="middle", rotate=-90)
+    d.edge("M488 812H500V656H512"); d.text("t-rel", 508, 700, "registers each side", rotate=-90)
     d.edge("M120 566V596"); d.text("t-rel", 128, 586, "asks for status")
     d.legend(960)
     d.write()

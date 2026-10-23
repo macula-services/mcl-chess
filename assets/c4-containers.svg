@@ -106,7 +106,7 @@
 <text class="t-name" x="876" y="260">macula-realm</text>
 <text class="t-type" x="876" y="278">[Macula infrastructure]</text>
 <text class="t-desc" x="876" y="302">Org mcl-chess, the node endorsement</text>
-<text class="t-desc" x="876" y="318">and one D25 grant per published</text>
+<text class="t-desc" x="876" y="318">and a D25 grant per published</text>
 <text class="t-desc" x="876" y="334">procedure</text>
 <rect class="b-ext" x="860" y="372" width="340" height="120" rx="10"/>
 <text class="t-name" x="876" y="400">ghcr.io</text>
@@ -114,12 +114,12 @@
 <text class="t-desc" x="876" y="442">The release image, by digest, signed</text>
 <text class="t-desc" x="876" y="458">and attested; the reconciler refuses</text>
 <text class="t-desc" x="876" y="474">an unsigned one on enforce</text>
-<rect class="b-later" x="860" y="512" width="340" height="120" rx="10"/>
+<rect class="b-ext" x="860" y="512" width="340" height="120" rx="10"/>
 <text class="t-name" x="876" y="540">macula-fleet</text>
-<text class="t-type" x="876" y="558">[planned: WP8, out of this range]</text>
-<text class="t-desc" x="876" y="582">The fleet definition: edge config,</text>
-<text class="t-desc" x="876" y="598">reconcile.manifest entry, digest pin,</text>
-<text class="t-desc" x="876" y="614">canary first</text>
+<text class="t-type" x="876" y="558">[deploys it]</text>
+<text class="t-desc" x="876" y="582">The service row: edge config env,</text>
+<text class="t-desc" x="876" y="598">reconcile.manifest entry, and a digest</text>
+<text class="t-desc" x="876" y="614">pin, canary first</text>
 <path class="edge" d="M128 392V416" marker-end="url(#a)"/>
 <text class="t-rel" x="136" y="408">appends</text>
 <path class="edge" d="M368 376V416" marker-end="url(#a)"/>
@@ -133,7 +133,7 @@
 <text class="t-rel" x="786" y="142" text-anchor="middle">admits, grants</text>
 <path class="edge" d="M860 432H820V190H700" marker-end="url(#a)"/>
 <text class="t-rel" x="786" y="182" text-anchor="middle">the image it runs</text>
-<path class="edge-later" d="M1030 512V492" marker-end="url(#a)"/>
+<path class="edge" d="M1030 512V492" marker-end="url(#a)"/>
 <text class="t-rel" x="1038" y="508">pins</text>
 <text class="t-desc" x="40" y="740">One container, one box: the v1 horizon is a single service node hosting many concurrent games, each its own aggregate and</text>
 <text class="t-desc" x="40" y="758">its own clock instance. Scaling out to several nodes is a later design, not v1; the per-game independence keeps it possible.</text>

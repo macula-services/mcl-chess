@@ -12,8 +12,8 @@ fivefold repetition, a resignation or a clock that ran out, and **archived**
 after the retention window. Every step goes through the three departments and
 publishes its fact on the mesh, and each game carries its own clock, which
 flags a player who runs out and is what finishes a sequence a crash left half
-done. What is still to come is the fleet definition, the realm grants and the
-live game between two agents; the work packages are in
+done. What is still to come is the realm grants and the live game between two
+agents; the fleet runs it from a pinned digest; the work packages are in
 [#1](https://github.com/macula-services/mcl-chess/issues/1).
 
 - Architecture, four levels: [`architecture/README.md`](architecture/README.md)
