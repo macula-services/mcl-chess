@@ -2,7 +2,7 @@
 #
 # TWO CHANNELS, AND A TAG PUSH MUST NOT TOUCH THE MAIN ONE.
 #
-#   push to main : publishes :main and :<sha>  <- what a hand-run deploy pulls
+#   push to main : publishes :latest
 #   push of v*   : publishes :<semver> ONLY     <- the rollback archive
 #
 # A push to main moves nothing the fleet follows: macula-fleet runs a signed

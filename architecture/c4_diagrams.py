@@ -138,7 +138,7 @@ def context():
     d.box("b-mac", 360, 320, 280, 130, "Macula mesh", "[Macula infrastructure]",
           ["Pinned stations are the entry", "points (QUIC); the union of",
            "stations routes an org procedure;", "the facts travel its topics"])
-    d.box("b-sys", 680, 320, 280, 130, "mcl-chess", "[mcl_om mesh service, own box]",
+    d.box("b-sys", 680, 320, 280, 130, "mcl-chess", "[mcl_om mesh service]",
           ["The referee: validates, clocks and", "sequences one game, records a",
            "disputable transcript, publishes", "facts. One service, one truth"])
     d.box("b-mac", 360, 530, 280, 110, "macula-realm", "[Macula infrastructure]",
@@ -207,7 +207,7 @@ def containers():
     d.edge("M252 480H264")
     d.edge("M700 120H860"); d.text("t-rel", 780, 112, "advertises", anchor="middle")
     d.edge("M860 280H790V150H700"); d.text("t-rel", 786, 142, "admits, grants", anchor="middle")
-    d.edge("M860 432H820V190H700"); d.text("t-rel", 786, 182, "the image it runs", anchor="middle")
+    d.edge("M860 432H820V190H700"); d.text("t-rel", 780, 182, "the image it runs", anchor="end")
     d.edge("M1030 512V492"); d.text("t-rel", 1038, 508, "pins")
     d.text("t-desc", 40, 740, "One container, one box: the v1 horizon is a single service node hosting many concurrent games, each its own aggregate and")
     d.text("t-desc", 40, 758, "its own clock instance. Scaling out to several nodes is a later design, not v1; the per-game independence keeps it possible.")

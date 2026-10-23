@@ -84,7 +84,7 @@
 <text class="t-desc" x="376" y="438">the facts travel its topics</text>
 <rect class="b-sys" x="680" y="320" width="280" height="130" rx="10"/>
 <text class="t-name" x="696" y="348">mcl-chess</text>
-<text class="t-type" x="696" y="366">[mcl_om mesh service, own box]</text>
+<text class="t-type" x="696" y="366">[mcl_om mesh service]</text>
 <text class="t-desc" x="696" y="390">The referee: validates, clocks and</text>
 <text class="t-desc" x="696" y="406">sequences one game, records a</text>
 <text class="t-desc" x="696" y="422">disputable transcript, publishes</text>
