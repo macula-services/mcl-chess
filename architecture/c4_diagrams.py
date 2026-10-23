@@ -207,7 +207,7 @@ def containers():
     d.edge("M252 480H264")
     d.edge("M700 120H860"); d.text("t-rel", 780, 112, "advertises", anchor="middle")
     d.edge("M860 280H790V150H700"); d.text("t-rel", 786, 142, "admits, grants", anchor="middle")
-    d.edge("M860 432H820V190H700"); d.text("t-rel", 780, 182, "the image it runs", anchor="end")
+    d.edge("M860 432H820V190H700"); d.text("t-rel", 812, 300, "the image it runs", anchor="end")
     d.edge("M1030 512V492"); d.text("t-rel", 1038, 508, "pins")
     d.text("t-desc", 40, 740, "One container, one box: the v1 horizon is a single service node hosting many concurrent games, each its own aggregate and")
     d.text("t-desc", 40, 758, "its own clock instance. Scaling out to several nodes is a later design, not v1; the per-game independence keeps it possible.")
