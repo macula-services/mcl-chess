@@ -84,7 +84,7 @@
 <text class="t-desc" x="376" y="438">the facts travel its topics</text>
 <rect class="b-sys" x="680" y="320" width="280" height="130" rx="10"/>
 <text class="t-name" x="696" y="348">mcl-chess</text>
-<text class="t-type" x="696" y="366">[mcl_om mesh service, own box]</text>
+<text class="t-type" x="696" y="366">[mcl_om mesh service]</text>
 <text class="t-desc" x="696" y="390">The referee: validates, clocks and</text>
 <text class="t-desc" x="696" y="406">sequences one game, records a</text>
 <text class="t-desc" x="696" y="422">disputable transcript, publishes</text>
@@ -94,7 +94,7 @@
 <text class="t-type" x="376" y="576">[Macula infrastructure]</text>
 <text class="t-desc" x="376" y="600">Admits the org mcl-chess and issues</text>
 <text class="t-desc" x="376" y="616">the D25 provider grant per procedure;</text>
-<text class="t-desc" x="376" y="632">a call without one is refused</text>
+<text class="t-desc" x="376" y="632">without its grant, a call is refused</text>
 <rect class="b-later" x="680" y="530" width="280" height="110" rx="10"/>
 <text class="t-name" x="696" y="558">Future matchmaker</text>
 <text class="t-type" x="696" y="576">[planned: separate division]</text>

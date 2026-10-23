@@ -138,11 +138,11 @@ def context():
     d.box("b-mac", 360, 320, 280, 130, "Macula mesh", "[Macula infrastructure]",
           ["Pinned stations are the entry", "points (QUIC); the union of",
            "stations routes an org procedure;", "the facts travel its topics"])
-    d.box("b-sys", 680, 320, 280, 130, "mcl-chess", "[mcl_om mesh service, own box]",
+    d.box("b-sys", 680, 320, 280, 130, "mcl-chess", "[mcl_om mesh service]",
           ["The referee: validates, clocks and", "sequences one game, records a",
            "disputable transcript, publishes", "facts. One service, one truth"])
     d.box("b-mac", 360, 530, 280, 110, "macula-realm", "[Macula infrastructure]",
-          ["Admits the org mcl-chess and issues", "the D25 provider grant per procedure;", "a call without one is refused"])
+          ["Admits the org mcl-chess and issues", "the D25 provider grant per procedure;", "without its grant, a call is refused"])
     d.box("b-later", 680, 530, 280, 110, "Future matchmaker", "[planned: separate division]",
           ["Decides who plays whom, then calls", "initiate_game with pre-assigned",
            "seats. Nothing here pairs players"])
@@ -164,70 +164,70 @@ def context():
 
 def containers():
     """Level 2. One box, one OCI container, three departments and a store."""
-    d = Diagram("c4-containers.svg", "mcl-chess containers", 1080, 720)
-    d.bound(24, 40, 576, 560, "The mcl-chess box [mcl_om mesh service, one OCI container]")
-    d.box("b-sys", 44, 76, 536, 110, "mcl_chess (boot app)", "[OTP release, mcl_om_service]",
-          ["Opens the event store before mcl_om:boot/1, supervises the three departments,",
-           "/health, and advertises the capabilities, naming any missing D25 grant."])
-    d.box("b-cmp", 44, 206, 168, 120, "play_games", "[CMD: commands, events, policies]",
-          ["One desk per slice, from", "game initiation to archive.",
-           "The only writer of events"])
-    d.box("b-cmp", 228, 206, 168, 120, "project_games", "[PRJ: projections]",
-          ["One projection per event,", "writing the read model and",
-           "the computed status label"])
-    d.box("b-cmp", 412, 206, 168, 120, "query_games", "[QRY: read model]",
-          ["get_game_by_id, by status,", "page, by player. Answers",
-           "from SQLite, never events"])
-    d.box("b-cmp", 44, 346, 250, 120, "Event store", "[reckon_db, volume /data]",
-          ["The source of truth: one stream", "per game, replayed to rebuild",
-           "the aggregate on demand"])
-    d.box("b-cmp", 310, 346, 270, 120, "Read model", "[SQLite through esqlite]",
-          ["Board, move list, clocks, status", "and label: what queries serve and",
-           "what a board viewer rebuilds from"])
-    d.box("b-cmp", 44, 486, 536, 96, "Identity and realm admission", "[node identity key, D25 grants]",
-          ["The identity key names the service to the realm; a procedure", "without its grant is refused at the boundary."])
-    d.box("b-mac", 780, 76, 280, 120, "Macula mesh", "[Macula infrastructure]",
-          ["Entry through pinned stations (QUIC);", "capabilities advertised as",
-           "mcl-chess/<verb>; facts on topics"])
-    d.box("b-mac", 780, 216, 280, 120, "macula-realm", "[Macula infrastructure]",
-          ["Org mcl-chess, the node endorsement", "and one D25 grant per published",
+    d = Diagram("c4-containers.svg", "mcl-chess containers", 1240, 840)
+    d.bound(24, 40, 700, 660, "The mcl-chess box [mcl_om mesh service, one OCI container]")
+    d.box("b-sys", 44, 76, 656, 140, "mcl_chess (boot app)", "[OTP release, mcl_om_service]",
+          ["Opens the event store before mcl_om:boot/1 and starts no child of its own: the departments",
+           "are application dependencies the release starts. Serves /health. initiate_game, claim_seat,",
+           "submit_move, resign_game, withdraw_game and get_game_by_id are its own procedures; mcl_om",
+           "adds open info and get_limits, and capabilities/0 is the list. Names any missing D25 grant."])
+    d.box("b-cmp", 44, 240, 208, 152, "play_games", "[CMD: commands]",
+          ["One desk per slice, from", "birth to archive; the only", "writer of events. Nine",
+           "emitters publish the facts,", "started by its supervisor."])
+    d.box("b-cmp", 264, 240, 208, 136, "project_games", "[PRJ: projections]",
+          ["One projection per event,", "writing the read model and", "the computed status label",
+           "at projection time."])
+    d.box("b-cmp", 484, 240, 208, 136, "query_games", "[QRY: read model]",
+          ["get_game_by_id today; by", "status, page and player are", "later. Reads SQLite, never",
+           "events."])
+    d.box("b-cmp", 44, 416, 208, 136, "Event store", "[reckon_db, volume /data]",
+          ["The source of truth: one", "stream per game, replayed", "to rebuild the aggregate",
+           "on demand"])
+    d.box("b-cmp", 264, 416, 208, 136, "Read model", "[SQLite through esqlite]",
+          ["Board, move list, clocks,", "status and label: what", "queries serve and a board",
+           "viewer rebuilds from"])
+    d.box("b-cmp", 44, 576, 648, 104, "Identity and realm admission", "[node identity key, D25 grants]",
+          ["The identity key names the service to the realm; a procedure without its grant is",
+           "refused at the boundary."])
+    d.box("b-mac", 860, 76, 340, 136, "Macula mesh", "[Macula infrastructure]",
+          ["Entry through the stations in the", "environment (QUIC); its procedures are",
+           "advertised as mcl-chess/<verb>; its facts", "travel the topics"])
+    d.box("b-mac", 860, 232, 340, 120, "macula-realm", "[Macula infrastructure]",
+          ["Org mcl-chess, the node endorsement", "and a D25 grant per published",
            "procedure"])
-    d.box("b-ext", 780, 356, 280, 120, "ghcr.io", "[External: signed images]",
-          ["The release image, by digest, signed", "and attested; the reconciler",
-           "refuses an unsigned one on enforce"])
-    d.box("b-later", 780, 496, 280, 120, "macula-fleet", "[planned: WP8, out of this range]",
-          ["The fleet definition: edge config,", "reconcile.manifest entry, digest",
+    d.box("b-ext", 860, 372, 340, 120, "ghcr.io", "[External: signed images]",
+          ["The release image, by digest, signed", "and attested; the reconciler refuses",
+           "an unsigned one on enforce"])
+    d.box("b-ext", 860, 512, 340, 120, "macula-fleet", "[deploys it]",
+          ["The service row: edge config env,", "reconcile.manifest entry, and a digest",
            "pin, canary first"])
-    d.edge("M128 186V206"); d.text("t-rel", 136, 200, "supervises")
-    d.edge("M312 186V206"); d.edge("M496 186V206")
-    d.edge("M128 326V346"); d.text("t-rel", 136, 340, "appends")
-    d.edge("M360 326V346"); d.text("t-rel", 368, 340, "writes")
-    d.edge("M496 346V326"); d.text("t-rel", 504, 340, "reads")
-    d.edge("M294 406H310")
-    d.edge("M580 110H780"); d.text("t-rel", 680, 96, "advertises the capabilities", anchor="middle")
-    d.text("t-rel", 680, 142, "and publishes the facts", anchor="middle")
-    d.edge("M780 250L600 178"); d.text("t-rel", 690, 250, "admits, grants", anchor="middle")
-    d.edge("M780 400L600 474"); d.text("t-rel", 690, 452, "the image this box runs", anchor="middle")
-    d.edge("M920 496V476", later=True); d.text("t-rel", 928, 492, "pins")
-    d.text("t-desc", 40, 636, "One container, one box: the v1 horizon is a single service node hosting many concurrent games, each its own aggregate and")
-    d.text("t-desc", 40, 654, "its own clock instance. Scaling out to several nodes is a later design, not v1; the per-game independence keeps it possible.")
-    d.legend(692)
+    d.edge("M128 392V416"); d.text("t-rel", 136, 408, "appends")
+    d.edge("M368 376V416"); d.text("t-rel", 376, 400, "writes")
+    d.edge("M588 376V400H440V416"); d.text("t-rel", 540, 394, "reads")
+    d.edge("M252 480H264")
+    d.edge("M700 120H860"); d.text("t-rel", 780, 112, "advertises", anchor="middle")
+    d.edge("M860 280H790V150H700"); d.text("t-rel", 786, 142, "admits, grants", anchor="middle")
+    d.edge("M860 432H820V190H700"); d.text("t-rel", 812, 300, "the image it runs", anchor="end")
+    d.edge("M1030 512V492"); d.text("t-rel", 1038, 508, "pins")
+    d.text("t-desc", 40, 740, "One container, one box: the v1 horizon is a single service node hosting many concurrent games, each its own aggregate and")
+    d.text("t-desc", 40, 758, "its own clock instance. Scaling out to several nodes is a later design, not v1; the per-game independence keeps it possible.")
+    d.legend(800)
     d.write()
 
 
 def components():
-    """Level 3. Inside the referee: the aggregate, the desks, the policies,
-    the clock, the facts and the rules."""
-    d = Diagram("c4-components.svg", "mcl-chess components", 1000, 820)
-    d.bound(16, 40, 968, 740, "play_games [Container, CMD]")
+    """Level 3. Inside the referee: the aggregate, the desks, the handlers,
+    the process managers, the facts and the rules."""
+    d = Diagram("c4-components.svg", "mcl-chess components", 1000, 990)
+    d.bound(16, 40, 968, 900, "play_games [Container, CMD]")
     d.box("b-sys", 32, 70, 456, 110, "game_aggregate, game_state, game_status.hrl", "[evoq_aggregate + state module]",
           ["Replays its own stream to the state: seats, position, to_move,",
            "ply, clocks, status flags, outcome. Every guard lives in a",
            "maybe_* handler, never in a caller."], code=True)
-    d.box("b-cmp", 512, 70, 456, 110, "mcl_chess_facts", "[the only module naming the mesh SDK]",
+    d.box("b-cmp", 512, 70, 456, 120, "mcl_chess_facts", "[the only module naming a topic]",
           ["Owns every topic and every translation: the facts contract in",
-           "one place, pinned by mcl_chess_facts_tests. Desks emit through",
-           "it; nothing else names a topic."], code=True)
+           "one place, pinned by mcl_chess_facts_tests. The nine emit_*",
+           "handlers publish through it; nothing else names a topic."], code=True)
     d.box("b-cmp", 32, 206, 210, 96, "initiate_game/", "[desk: birth]", ["game_initiated_v1"], code=True)
     d.box("b-cmp", 262, 206, 210, 96, "claim_seat/", "[desk: seats]",
           ["seat_claimed_v1,", "seat_refused_v1"], code=True)
@@ -242,31 +242,39 @@ def components():
           ["game_ended_v1,", "clock_flagged_v1"], code=True)
     d.box("b-cmp", 712, 322, 210, 96, "archive_game/", "[desk: death]",
           ["game_archived_v1,", "after retention"], code=True)
-    d.box("b-cmp", 32, 480, 456, 132, "on_* policies", "[evoq_event_handler, replay_policy skip]",
+    d.box("b-cmp", 32, 446, 456, 120, "on_* policies", "[evoq_event_handler, replay_policy skip]",
           ["on_seat_claimed_v1_maybe_start_game,",
            "on_move_played_v1_maybe_end_game,",
            "on_clock_flagged_v1_maybe_end_game."], code=True)
-    d.box("b-cmp", 512, 480, 456, 132, "game_clock_pm, game_retention_pm", "[evoq_process_manager, one per game]",
+    d.box("b-cmp", 512, 446, 456, 120, "emit_*_to_mesh (nine)", "[evoq_event_handler, replay_policy skip]",
+          ["The only publishers: one per fact, each reading the",
+           "recorded event and publishing it through mcl_chess_facts.",
+           "play_games_sup starts them; a replay republishes nothing."], code=True)
+    d.box("b-cmp", 32, 596, 456, 126, "mcl_chess_rules", "[Rust NIF over cozy-chess, stateless]",
+          ["validate_move(Fen, Uci), apply_move(Fen, Uci) -> Fen', the Zobrist",
+           "hash and the halfmove-reset flag, position_hash(Fen), status(Fen,",
+           "Halfmove) -> active | checkmate | stalemate | insufficient_material",
+           "| seventy_five_moves; cannot_mate(Fen, Colour). Legal-only generation."], code=True)
+    d.box("b-cmp", 512, 596, 456, 126, "game_clock_pm, game_retention_pm", "[evoq_process_manager, one per game]",
           ["The clock: white's clock starts at game_started_v1; the",
            "mover's stops and the opponent's starts on move_played_v1;",
            "both stop at game_ended_v1, and a deadline that fires is a",
            "flag. Retention: the window, then the death slice."], code=True)
-    d.box("b-cmp", 32, 648, 456, 126, "mcl_chess_rules", "[Rust NIF over cozy-chess, stateless]",
-          ["validate_move(Fen, Uci), apply_move(Fen, Uci) -> Fen', the Zobrist",
-           "hash and the halfmove-reset flag, position_hash(Fen), status(Fen,",
-           "Halfmove) -> active | checkmate | stalemate | insufficient_material",
-           "| seventy_five_moves. Legal-only generation."], code=True)
-    d.box("b-mac", 512, 648, 456, 126, "evoq 1.27.0", "[the only application surface]",
+    d.box("b-cmp", 32, 752, 456, 120, "play_games_pm_registrar", "[gen_server, child of play_games_sup]",
+          ["Registers game_clock_pm and game_retention_pm with evoq's PM",
+           "router, and registers them again if the router restarts (evoq#9)."],
+          code=True)
+    d.box("b-mac", 512, 752, 456, 120, "evoq 1.27.0", "[the CQRS framework]",
           ["evoq_command, evoq_event, evoq_aggregate, evoq_event_handler,",
            "evoq_process_manager, evoq_command_router, evoq_bit_flags. The",
            "adapter is named in sys.config only: no desk touches the store."])
     d.edge("M137 180V206"); d.text("t-rel", 145, 198, "every handler guards on the state")
-    d.edge("M830 206V180"); d.text("t-rel", 822, 200, "emits through", anchor="end")
-    d.edge("M482 480V418"); d.text("t-rel", 474, 452, "dispatches the next", anchor="end")
-    d.text("t-rel", 474, 470, "command into a desk", anchor="end")
-    d.edge("M597 480V418"); d.text("t-rel", 605, 470, "flag_clock_v1")
-    d.edge("M120 612V648"); d.text("t-rel", 128, 634, "asks for status")
-    d.legend(792)
+    d.edge("M482 446V438H522V418"); d.text("t-rel", 452, 432, "dispatches the next command", anchor="end")
+    d.edge("M512 630H504V428H560V418"); d.text("t-rel", 600, 430, "flag_clock_v1")
+    d.edge("M940 446V190"); d.text("t-rel", 932, 380, "publishes", anchor="middle", rotate=-90)
+    d.edge("M488 812H500V656H512"); d.text("t-rel", 508, 700, "registers each side", rotate=-90)
+    d.edge("M120 566V596"); d.text("t-rel", 128, 586, "asks for status")
+    d.legend(960)
     d.write()
 
 

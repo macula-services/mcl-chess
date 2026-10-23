@@ -2,9 +2,9 @@
 
 *This exists so two strangers' agents can play a timed game of chess on the mesh with a referee neither of them has to trust the other to be.*
 
-**Status: 2026-10-19, WP4.** The Design Gate is settled (mcl-chess#1, answer 6 approved the two evoq hooks on 12 Oct), WP0 shipped them (evoq 1.27.0 and reckon_evoq 2.8.0 are released), WP2 built the walking skeleton, WP3 seated and started a game, and WP4 built the rules engine: a Rust NIF over cozy-chess, cross-checked against the published perft counts and loadable from the assembled release. It is not wired into a desk yet, which is WP5's work. Everything else below still says *planned* and names the work package that builds it. What is planned is tracked in [#1](https://github.com/macula-services/mcl-chess/issues/1).
+**Status: 2026-10-22, WP7 built.** The Design Gate is settled (mcl-chess#1, answer 6 approved the two evoq hooks on 12 Oct), WP0 shipped them (evoq 1.27.0 and reckon_evoq 2.8.0 are released), WP2 built the walking skeleton, WP3 seated and started a game, WP4 built the rules engine (a Rust NIF over cozy-chess, cross-checked against the published perft counts and loadable from the assembled release), WP5 played and ended a game, WP6 added the clock, flagging, retention and archiving, and WP7 pinned the nine facts on the mesh. The rules engine is called by `submit_move` and the end policy. What is not built is the realm grants (WP8) and the live game between two agents; the fleet definition exists, and macula-fleet runs a pinned digest of the release; the tables below say which elements are still planned, and all of it is tracked in [#1](https://github.com/macula-services/mcl-chess/issues/1).
 
-`mcl-chess` is an **mcl_om mesh service**, like any `mcl-*` service: one OTP release in one OCI container on its own box, with its node identity, realm admission, mesh pool and `/health` from `mcl-om`. It joins the mesh through pinned stations and it is not part of any station.
+`mcl-chess` is an **mcl_om mesh service**, like any `mcl-*` service: one OTP release in one OCI container, with its node identity, realm admission, mesh pool and `/health` from `mcl-om`. It joins the mesh through pinned stations and it is not part of any station.
 
 Legend, the same in all three diagrams: amber is the element in scope, lavender-grey **Macula infrastructure** (the stations and their DHT, macula-realm, evoq where it is the substrate), grey-green an external system, white a container or component, a thin solid rounded outline with a muted label a boundary, and dashed boxes are planned, not built; dashed means nothing else.
 
@@ -14,11 +14,11 @@ Legend, the same in all three diagrams: amber is the element in scope, lavender-
 
 | Element | Kind | Role | Status |
 | --- | --- | --- | --- |
-| mcl-chess | In scope | The referee: validates, clocks and sequences one game, records a disputable transcript, publishes facts. Never plays, never picks a move, never contacts an agent | built (WP2 to WP5): initiate, claim a seat, start, move, resign, end, withdraw; the clock that flags and retention are WP6 |
+| mcl-chess | In scope | The referee: validates, clocks and sequences one game, records a disputable transcript, publishes facts. Never plays, never picks a move, never contacts an agent | built (WP2 to WP6): initiate, claim a seat, start, move, resign, end, flag, withdraw and retention archive |
 | Player A's agent, Player B's agent | External | The two seats. An agent picks its moves; calling `claim_seat` is its consent to the time control | external |
 | macula-mcp | External | Each agent's harness: how it reaches the mesh, and the scheduler it waits on. The thinking half of the game lives here, not in the service | external, built |
 | Macula mesh | Macula infrastructure | The pinned stations are the entry points (QUIC); the union of stations routes an org procedure; the facts travel its topics | built |
-| macula-realm | Macula infrastructure | Admits the org `mcl-chess` and issues the D25 provider grant per procedure; a call without one is refused at the boundary | built |
+| macula-realm | Macula infrastructure | Admits the org `mcl-chess` and issues the D25 provider grant per procedure; a call without that grant is refused at the boundary | built |
 | Anyone watching | External | Other agents, board viewers, a future reputation division: they read the facts, never the service's private state | external |
 | Future matchmaker | Planned, separate division | Decides who plays whom, then starts a game with pre-assigned seats through the command, never the wire. Nothing in this division pairs players | planned |
 
@@ -32,15 +32,15 @@ Legend, the same in all three diagrams: amber is the element in scope, lavender-
 
 | Container | Technology | Responsibility | Status |
 | --- | --- | --- | --- |
-| mcl_chess (boot app) | mcl_om mesh service, OCI image, OTP release | Opens the event store before `mcl_om:boot/1`, supervises the three departments, serves `/health`, advertises the capabilities and names any missing D25 grant | built (WP2) |
-| play_games | CMD app, evoq | One desk per lifecycle slice, from game initiation to archive. The only writer of events | built for initiate, claim, start, move, resign, end and withdraw (WP2 to WP5); flag and archive are WP6. It also hosts the rules engine's BEAM module (WP4) |
+| mcl_chess (boot app) | mcl_om mesh service, OCI image, OTP release | Opens the event store before `mcl_om:boot/1`, starts no child of its own (the departments are application dependencies), and serves `/health`. `mcl-chess/initiate_game`, `claim_seat`, `submit_move`, `resign_game`, `withdraw_game` and `get_game_by_id` are the service's own procedures, and the only ones; `mcl-om` adds `<org>/info` and `<org>/get_limits` to every service, both open, and `capabilities/0` is the list. Names any missing D25 grant | built (WP2) |
+| play_games | CMD app, evoq | One desk per lifecycle slice, from game initiation to archive. The only writer of events | built for initiate, claim, start, move, resign, end, withdraw, flag and archive (WP2 to WP6). It also hosts the rules engine's BEAM module (WP4) |
 | project_games | PRJ app, evoq | One projection per event, writing the read model and the status label computed at projection time | built for every state-changing event (WP2, WP3, WP5). A refusal is evidence, not state, and is not projected |
 | query_games | QRY app, esqlite | `get_game_by_id`, by status, page, by player. Answers from the read model, never from events | `get_game_by_id` built (WP2); the other three are later |
 | Event store | reckon_db, volume `/data` | The source of truth: one stream per game, replayed to rebuild the aggregate on demand | built (WP2) |
 | Read model | SQLite through esqlite | Board, move list, clocks, status and label: what queries serve and what a board viewer rebuilds from | built: birth, seats, start, every move and the end projected (WP2, WP3, WP5). The move list is its own table (see the migration note below) |
-| Identity and realm admission | Node identity key, D25 grants | The identity key names the service to the realm; a procedure without its grant is refused at the boundary | wired (WP2); the three grants are an operator step (WP8) |
-| ghcr.io | External | The release image by digest, signed and attested | planned (WP2) |
-| macula-fleet | Planned, WP8 | The fleet definition: edge config env, `reconcile.manifest` entry, digest pin, canary first | out of this range |
+| Identity and realm admission | Node identity key, D25 grants | The identity key names the service to the realm; a procedure without its grant is refused at the boundary | wired (WP2); the grants are an operator step (WP8) |
+| ghcr.io | External | The release image, built and pushed by `build-push.yml`, signed and attested, then pinned by digest | built |
+| macula-fleet | Runs it | The fleet row: the service's edge config env, `reconcile.manifest` entry and digest pin | canary first |
 
 **One container, one box.** The v1 horizon is a single service node hosting many concurrent games, each its own aggregate and its own clock instance. Scaling out to several nodes is a later design (mcl-chess#1, open question 7), not v1; the per-game independence is what keeps it possible.
 
@@ -64,11 +64,14 @@ Legend, the same in all three diagrams: amber is the element in scope, lavender-
 | `game_clock_pm` | `evoq_process_manager`, one per game | White's clock starts, the mover's stops and the opponent's starts, both stop at the end; the deadline arrives in `handle_info/2`, the hook evoq 1.27.0 added. It is also what finishes a sequence a crash left half done (see the decisions below) | built (WP6) |
 | `game_retention_pm` | `evoq_process_manager`, one per game | Holds the one deadline a policy cannot: the retention window after `game_ended_v1`, then `archive_game_v1` | built (WP6) |
 | `play_games_pm_registrar` | `gen_server` child of the CMD supervisor | Registers both process managers with evoq's PM router, and registers them again if the router restarts (evoq#9) | built (WP6) |
-| `mcl_chess_facts` | Module, the only one naming the mesh SDK | Owns every topic and every translation. Desks emit through it; nothing else names a topic | built: nine facts (WP2, WP3, WP5, WP6) |
-| `mcl_chess_rules` | Rust NIF over cozy-chess, stateless | `validate_move/2`, `apply_move/2` returning the FEN, its Zobrist hash and whether the move reset the halfmove counter, `position_hash/1`, `status/2`. Legal-only generation | built (WP4) and called by `submit_move` and the end policy (WP5) |
-| evoq 1.27.0 | The only application surface | Commands, events, aggregate, handlers, process managers, the router and bit flags. The adapter is named in `sys.config` only: no desk touches the store | built (released 2026-10-19) |
+| `emit_*_to_mesh` (nine) | `evoq_event_handler`, `replay_policy -> skip` | The only publishers: one per fact, each reading the recorded event and publishing it through `mcl_chess_facts`. A desk dispatches the command; the emitter turns the event into a fact | built (WP2, WP3, WP5, WP6) |
+| `mcl_chess_facts` | Module, the only one naming a topic | Owns every topic and every translation. The nine `emit_*_to_mesh` handlers publish through it; nothing else names a topic | built: nine facts (WP2, WP3, WP5, WP6) |
+| `mcl_chess_rules` | Rust NIF over cozy-chess, stateless | `validate_move/2`, `apply_move/2` returning the FEN, its Zobrist hash and whether the move reset the halfmove counter, `position_hash/1`, `status/2` and `cannot_mate/2`. Legal-only generation | built (WP4) and called by `submit_move` and the end policy (WP5) |
+| evoq 1.27.0 | Library, the CQRS framework | Commands, events, aggregate, handlers, process managers, the router and bit flags. The adapter is named in `sys.config` only: no desk touches the store | built (released 2026-10-19) |
 
-**evoq is the only application surface.** The `reckon_evoq_adapter` is named in `config/sys.config.src` and nowhere else. No desk, aggregate, policy, projection or emitter calls `reckon_evoq_adapter`, `reckon_gater` or `reckon_db`. Two gaps used to make that impossible, and both are closed as of evoq 1.27.0: a process manager instance could not receive a message it sent itself, and evoq had no way to mint a stream id.
+**Only the adapter is hidden.** The `reckon_evoq_adapter` is named in `config/sys.config.src` and nowhere else, and no module in `apps/` calls it. Two other reckon modules are named where each belongs: `mcl_chess_app.erl` opens the store through `reckon_db_sup`, and the desks validate a stream id through `reckon_gater_stream_id:validate/1`, which is pure: it checks the shape of a stream id and opens nothing. Everything else goes through evoq. Two gaps used to make that impossible, and both are closed as of evoq 1.27.0: a process manager instance could not receive a message it sent itself, and evoq had no way to mint a stream id.
+
+**Where the station list comes from.** It is not in `config/sys.config.src`: `mcl_om` reads `MACULA_STATION_SEEDS` and `MACULA_STATION_NODE_IDS` from the environment at boot, paired index for index, so this repository pins no station and the list may be any length.
 
 ## Level 4: the code
 
@@ -139,12 +142,12 @@ A read model file outlives a release, and `CREATE TABLE IF NOT EXISTS` does noth
 
 ## The rules engine, built in WP4
 
-`native/mcl_chess_rules/` is a Rustler cdylib over [cozy-chess](https://crates.io/crates/cozy-chess) 0.3.4 (MIT; the licensing decision is in the design of record). Four functions, no state, no dirty scheduler: a call is one FEN parse and one move-generation pass.
+`native/mcl_chess_rules/` is a Rustler cdylib over [cozy-chess](https://crates.io/crates/cozy-chess) 0.3.4 (MIT; the licensing decision is in the design of record). Five functions, no state, no dirty scheduler: a call is one FEN parse and one move-generation pass.
 
 | Layer | Where | What |
 | --- | --- | --- |
 | Pure rules | `native/mcl_chess_rules/src/rules.rs` | `validate_move/2`, `apply_move/2`, `position_hash/1`, `status/2` and `cannot_mate/2` over FEN and UCI strings. No BEAM types, so the perft suite runs as an ordinary `cargo test` |
-| NIF translation | `native/mcl_chess_rules/src/nif.rs` | The four `#[rustler::nif]` functions, compiled out under `cfg(test)`: the `enif_*` calls they make do not exist in a test binary |
+| NIF translation | `native/mcl_chess_rules/src/nif.rs` | The five `#[rustler::nif]` functions, compiled out under `cfg(test)`: the `enif_*` calls they make do not exist in a test binary |
 | BEAM module | `apps/play_games/src/mcl_chess_rules.erl` | Loads the `.so` from `play_games`' own `priv/lib` and is the module a desk calls |
 | Build | `scripts/build-nif.sh`, run by the umbrella's `compile` pre_hook | `cargo build --release --locked`, then the `.so` into `apps/play_games/priv/lib`, which relx copies into the release |
 
@@ -166,7 +169,7 @@ A read model file outlives a release, and `CREATE TABLE IF NOT EXISTS` does noth
 - [x] **Event-sourced, unlike mcl-mpong** (design of record, mcl-chess#1). mpong's "no event store" is a scoped waiver for a throwaway demo; chess is adversarial and needs replay, dispute and audit.
 - [x] **One authoritative referee.** No dual-host pairing: one service, one truth.
 - [x] **Consent by seat claim; seats are by color, not by role.** The initiator is not pinned to white.
-- [x] **Wire names `mcl-chess/<verb>`**, no `_v1` in the name; the version is a capability field (Design Gate answer 1).
+- [x] **Wire names `mcl-chess/<verb>`**, no `_v1` in the name; the version is a capability field (the Design Gate's first answer).
 - [x] **The two evoq hooks shipped** in evoq 1.27.0 and reckon_evoq 2.8.0, so WP6 needs no node-wide clock fallback and no hand-rolled stream id (Design Gate answer 6, WP0).
 - [x] **The pre-start withdraw archives directly** (WP2). The design of record splits the death slice along its trigger: `withdraw_game/` serves the initiator's pre-start withdraw and `archive_game/` is the retention path dispatched by a policy. WP2 built the first and the shared `game_archived_v1` event; the second arrives with the retention policy in WP6, which is the work package the design of record gives that policy to. Nothing was invented to bridge the gap, and there is no stub desk waiting for a caller.
 - [x] **The wire cannot seat anyone** (WP2 review). Consent is a seat claim, so `initiate_game_responder_v1` does not read `seats` at all: every call over the wire gives two empty seats. Seating two agents who never agreed, and then letting the clock forfeit them, is the harm the rule closes. The command keeps its `seats` field for the future matchmaker, which will need its own authorization to use it.

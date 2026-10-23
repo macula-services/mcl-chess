@@ -12,14 +12,15 @@ fivefold repetition, a resignation or a clock that ran out, and **archived**
 after the retention window. Every step goes through the three departments and
 publishes its fact on the mesh, and each game carries its own clock, which
 flags a player who runs out and is what finishes a sequence a crash left half
-done. What is still to come is the fleet definition, the realm grants and the
-live game between two agents; the work packages are in
+done. What is still to come is the realm grants and the live game between two
+agents; the fleet runs it from a pinned digest; the work packages are in
 [#1](https://github.com/macula-services/mcl-chess/issues/1).
 
 - Architecture, four levels: [`architecture/README.md`](architecture/README.md)
-- What the service offers on the wire: `mcl-chess/initiate_game`,
-  `mcl-chess/claim_seat`, `mcl-chess/submit_move`, `mcl-chess/resign_game`,
-  `mcl-chess/withdraw_game`, `mcl-chess/get_game_by_id`
+- `mcl-chess/initiate_game`, `claim_seat`, `submit_move`, `resign_game`,
+  `withdraw_game` and `get_game_by_id` are the service's own procedures, and the
+  only ones; `mcl_om` adds `<org>/info` and `<org>/get_limits` to every service,
+  both open, and `capabilities/0` is the list
 - What it publishes: `io.macula/mcl-chess/chess/game/game_initiated_v1`,
   `.../seat_claimed_v1`, `.../seat_refused_v1`, `.../game_started_v1`,
   `.../move_played_v1`, `.../move_refused_v1`, `.../clock_flagged_v1`,
