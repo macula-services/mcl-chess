@@ -25,6 +25,14 @@ entries ship in this release, unchanged, with the macula 18 migration on top.
 - **No subscription moved.** This service declares no `subscriptions/0`, so
   macula 18's requirement that a topic subscription name its sources has
   nothing to apply to here.
+- **evoq's floor moves from `~> 1.27` to `~> 1.30`, and it is not a tidiness
+  bump.** The read model projects one handler over seven event types
+  (mcl-chess#18), and before 1.30.0 backfill ran only for a type's *first*
+  handler (evoq#4): with a one-type emitter registering ahead of the
+  projection, the `games` row got no history at all for that type — green
+  tests, silently missing rows. 1.30.0 is also where each handler got its own
+  courier, the ordering the single handler relies on. On 1.27-1.29 this
+  service would run and lose history, so the floor moved with the design.
 - Minor rather than patch: a SDK major is a deployment change, and this
   release runs only on a box carrying mcl_om 1.6.
 

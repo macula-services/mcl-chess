@@ -75,7 +75,7 @@ born(Data, Event) ->
     Clocks = maps:get(clocks, Data),
     Status = maps:get(status, Data),
     game_read_model_store:exec(
-      "INSERT OR REPLACE INTO games"
+      "INSERT INTO games"
       " (game_id, protocol, initial_ms, increment_ms, white_node_id,"
       "  black_node_id, position, to_move, ply, white_clock_ms,"
       "  black_clock_ms, status, status_label, initiator, archive_reason,"

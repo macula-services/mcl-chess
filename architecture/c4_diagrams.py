@@ -175,8 +175,8 @@ def containers():
           ["One desk per slice, from", "birth to archive; the only", "writer of events. Nine",
            "emitters publish the facts,", "started by its supervisor."])
     d.box("b-cmp", 264, 240, 208, 136, "project_games", "[PRJ: projections]",
-          ["One projection per event,", "writing the read model and", "the computed status label",
-           "at projection time."])
+          ["One projection over a game's", "whole lifecycle, writing the", "read model and the computed",
+           "status label at projection time."])
     d.box("b-cmp", 484, 240, 208, 136, "query_games", "[QRY: read model]",
           ["get_game_by_id today; by", "status, page and player are", "later. Reads SQLite, never",
            "events."])

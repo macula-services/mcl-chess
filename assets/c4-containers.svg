@@ -65,10 +65,10 @@
 <rect class="b-cmp" x="264" y="240" width="208" height="136" rx="10"/>
 <text class="t-name" x="280" y="268">project_games</text>
 <text class="t-type" x="280" y="286">[PRJ: projections]</text>
-<text class="t-desc" x="280" y="310">One projection per event,</text>
-<text class="t-desc" x="280" y="326">writing the read model and</text>
-<text class="t-desc" x="280" y="342">the computed status label</text>
-<text class="t-desc" x="280" y="358">at projection time.</text>
+<text class="t-desc" x="280" y="310">One projection over a game's</text>
+<text class="t-desc" x="280" y="326">whole lifecycle, writing the</text>
+<text class="t-desc" x="280" y="342">read model and the computed</text>
+<text class="t-desc" x="280" y="358">status label at projection time.</text>
 <rect class="b-cmp" x="484" y="240" width="208" height="136" rx="10"/>
 <text class="t-name" x="500" y="268">query_games</text>
 <text class="t-type" x="500" y="286">[QRY: read model]</text>
