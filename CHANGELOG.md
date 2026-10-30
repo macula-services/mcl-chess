@@ -5,19 +5,39 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## Unreleased
+## [0.8.0] - 2026-10-30
 
-- **macula is declared, at 16** (macula-codebase-checks#4, #14). The
+Two unreleased sections had accumulated here under the same heading; both
+entries ship in this release, unchanged, with the macula 18 migration on top.
+
+### Changed
+
+- **macula 18 and mcl_om 1.6** (macula-services/mcl-om#42). The floors move to
+  `mcl_om ~> 1.6` and `macula ~> 18.0`. macula arrives through mcl_om, but a
+  top-level pin wins in rebar3, so both move together; no service code moved.
+- **The caller rule was already stated here, and now the SDK enforces it.**
+  All six capabilities carry `auth => open` — any identified caller that
+  reaches the mesh may start a game, take a seat, play a move, resign, withdraw
+  or look a game up, which is what this service has always served. macula 18
+  refuses an advertise that names no call class (macula-io/macula#147) and
+  mcl_om 1.6 refuses the boot of a capability that names none, so the class
+  that used to be implicit is now what the substrate reads.
+- **No subscription moved.** This service declares no `subscriptions/0`, so
+  macula 18's requirement that a topic subscription name its sources has
+  nothing to apply to here.
+- Minor rather than patch: a SDK major is a deployment change, and this
+  release runs only on a box carrying mcl_om 1.6.
+
+### Added
+
+- **macula is declared, at 18** (macula-codebase-checks#4, #14). The
   service called macula modules and compiled against `macula_response`
   without declaring the application: it arrived transitively through
   `mcl_om`, so a rebuild took whatever major the newest mcl_om carried.
-  `macula` is now a direct dependency at `~> 16.0` and `mcl_om` is at
-  `~> 1.4`, the release whose own base is macula 16. 16.0 keeps wire 1.0,
-  so this service still speaks to every wire 1.0 box; what it adds is the
-  revocation bound (macula#118). This service gates no overlay and issues
-  no endorsement.
-
-## [Unreleased]
+  `macula` is now a direct dependency, at `~> 18.0` from this release, and
+  `mcl_om` is at `~> 1.6`, the release whose own base is macula 18. 18.0
+  keeps wire 1.0, so this service still speaks to every wire 1.0 box.
+  This service gates no overlay and issues no endorsement.
 
 ### Fixed
 

@@ -1,6 +1,6 @@
 {application, query_games, [
     {description, "mcl-chess QRY division: the read model, answered."},
-    {vsn, "0.7.2"},
+    {vsn, "0.8.0"},
     {registered, [game_query_store]},
     {mod, {query_games_app, []}},
     {applications, [

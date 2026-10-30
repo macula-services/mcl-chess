@@ -1,6 +1,6 @@
 {application, project_games, [
     {description, "mcl-chess PRJ division: events to the sqlite read model."},
-    {vsn, "0.7.2"},
+    {vsn, "0.8.0"},
     {registered, [game_read_model_store]},
     {mod, {project_games_app, []}},
     %% NOTE what is deliberately NOT here: play_games. The projections read
