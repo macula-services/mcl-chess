@@ -24,15 +24,19 @@ init([]) ->
              type => worker,
              modules => [game_read_model_store]},
            projection(game_initiated_v1_to_sqlite_games),
-           %% The claim and the start both UPDATE the row the birth created, so
-           %% the birth projection must be listening and have run first; the
-           %% subscription delivers one stream in version order, which is what
-           %% makes that true, and each UPDATE checks its row is there.
+           %% One child per event type is one cursor per event type: since
+           %% evoq 1.30 each handler has its own courier, so delivery is ordered
+           %% within a handler and NOT across them (evoq#30). A claim or a start
+           %% can therefore be projected before the birth, or after a later
+           %% event. Neither is a fault, because every write after the birth
+           %% applies only when its event is newer than the row, and each UPDATE
+           %% checks its row is there (mcl-chess#18).
            projection(seat_claimed_v1_to_sqlite_games),
            projection(game_started_v1_to_sqlite_games),
            projection(move_played_v1_to_sqlite_games),
-           %% The flag precedes the end of the same command, so it must be
-           %% projected before the end writes the outcome over it.
+           %% The flag and the end of the same command arrive on two cursors and
+           %% may be projected in either order. The version guard is what keeps
+           %% the end's outcome over the flag's clocks, not this list's order.
            projection(clock_flagged_v1_to_sqlite_games),
            projection(game_ended_v1_to_sqlite_games),
            projection(game_archived_v1_to_sqlite_games)]}}.

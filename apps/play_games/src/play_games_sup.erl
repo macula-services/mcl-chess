@@ -24,6 +24,10 @@ init([]) ->
            %% Policies first among the subscribers: each turns an event into the
            %% command that must follow it, and they must be listening before the
            %% emitters are (the emitters are the observable half, not the rule).
+           %% This list is start order. Since evoq 1.30 each handler has its own
+           %% courier, so it is not delivery order across handlers (evoq#30):
+           %% a policy and an emitter may see the same event in either order,
+           %% and nothing here depends on that.
            handler(on_seat_claimed_v1_maybe_start_game),
            handler(on_move_played_v1_maybe_end_game),
            handler(on_clock_flagged_v1_maybe_end_game),

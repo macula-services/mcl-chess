@@ -47,12 +47,19 @@ entries ship in this release, unchanged, with the macula 18 migration on top.
   have gone on reporting the older one. `mcl_chess_release_apps_tests` now reads the release tuple,
   every app it names and each app's .app.src, and fails when they disagree.
 - **A projection of an older event can no longer undo a newer one** (mcl-chess#18).
-  evoq gives each event type its own handler cursor, so `move_played_v1` and
-  `game_ended_v1` are projected by two processes that do not order themselves
-  against each other, and every projection wrote the `games` row unconditionally
-  from its own event. The mate's last move, landing after the end it caused, put
-  the finished game back to `in progress` and left it there — the events were
-  right and only the read model was wrong, which is what made it read as an
+  This service has one `evoq_event_handler` child per event type, and until
+  evoq 1.30 that was harmless because the router delivered to them in one pass.
+  evoq 1.30 gave every handler its own courier, so delivery is now ordered
+  within a handler and not across handlers (evoq#30) — and the ordering this
+  read model had relied on without saying so went away. evoq arrives through
+  mcl_om and is not pinned, so the same build fails on the previous commit
+  too: this is not the SDK migration, it is a dependency that moved under it.
+  `move_played_v1` and `game_ended_v1` are projected by two processes that do
+  not order themselves against each other, and every projection wrote the
+  `games` row unconditionally from its own event. The mate's last move, landing
+  after the end it caused, put the finished game back to `in progress` and left
+  it there — the events were right and only the read model was wrong, which is
+  what made it read as an
   intermittently failing test rather than a lost write. Every write after the
   birth now applies only when its event is newer than the row
   (`AND version < ?`), and a redelivered birth does nothing
