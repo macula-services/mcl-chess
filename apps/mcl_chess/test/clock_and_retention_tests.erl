@@ -74,13 +74,7 @@ setup() ->
                                           on_seat_claimed_v1_maybe_start_game,
                                           on_move_played_v1_maybe_end_game,
                                           on_clock_flagged_v1_maybe_end_game,
-                                          game_initiated_v1_to_sqlite_games,
-                                          seat_claimed_v1_to_sqlite_games,
-                                          game_started_v1_to_sqlite_games,
-                                          move_played_v1_to_sqlite_games,
-                                          clock_flagged_v1_to_sqlite_games,
-                                          game_ended_v1_to_sqlite_games,
-                                          game_archived_v1_to_sqlite_games]],
+                                          game_lifecycle_to_games]],
     %% The clock and the retention are process managers, registered rather than
     %% started: evoq's PM supervisor owns their instances.
     ok = evoq_process_manager:start(game_clock_pm, #{}),

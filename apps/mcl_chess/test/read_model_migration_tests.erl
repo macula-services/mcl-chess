@@ -66,8 +66,8 @@ a_file_built_before_started_at_gains_it() ->
 %% And the whole slice then works on that file: the birth creates the row, the
 %% start writes its moment, and the desk answers with it.
 the_start_projection_then_answers_the_start_time() ->
-    ?assertEqual(ok, project(game_initiated_v1_to_sqlite_games, initiated())),
-    ?assertEqual(ok, project(game_started_v1_to_sqlite_games, started())),
+    ?assertEqual(ok, project(initiated())),
+    ?assertEqual(ok, project(started())),
     {ok, Game} = get_game_by_id:find(?GAME),
     ?assertEqual(5, maps:get(<<"status">>, Game)),
     ?assertEqual(1792435657980, maps:get(<<"started_at">>, Game)).
@@ -96,8 +96,9 @@ columns() ->
 %% Fixtures
 %%====================================================================
 
-project(Module, Event) ->
-    case Module:handle_event(maps:get(event_type, Event), Event, #{}, #{}) of
+project(Event) ->
+    case game_lifecycle_to_games:handle_event(
+           maps:get(event_type, Event), Event, #{}, #{}) of
         {ok, _State} -> ok;
         {error, Reason} -> {error, Reason}
     end.

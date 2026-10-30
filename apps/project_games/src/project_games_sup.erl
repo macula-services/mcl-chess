@@ -23,23 +23,15 @@ init([]) ->
              shutdown => 5000,
              type => worker,
              modules => [game_read_model_store]},
-           projection(game_initiated_v1_to_sqlite_games),
-           %% One child per event type is one cursor per event type: since
-           %% evoq 1.30 each handler has its own courier, so delivery is ordered
-           %% within a handler and NOT across them (evoq#30). A claim or a start
-           %% can therefore be projected before the birth, or after a later
-           %% event. Neither is a fault, because every write after the birth
-           %% applies only when its event is newer than the row, and each UPDATE
-           %% checks its row is there (mcl-chess#18).
-           projection(seat_claimed_v1_to_sqlite_games),
-           projection(game_started_v1_to_sqlite_games),
-           projection(move_played_v1_to_sqlite_games),
-           %% The flag and the end of the same command arrive on two cursors and
-           %% may be projected in either order. The version guard is what keeps
-           %% the end's outcome over the flag's clocks, not this list's order.
-           projection(clock_flagged_v1_to_sqlite_games),
-           projection(game_ended_v1_to_sqlite_games),
-           projection(game_archived_v1_to_sqlite_games)]}}.
+           %% ONE handler for all seven game events, so one cursor for the whole
+           %% row. Since evoq 1.30 each handler has its own courier and delivery
+           %% is ordered within a handler and NOT across them (evoq#30); one
+           %% handler per event type therefore ordered nothing against the game's
+           %% own events, and because each event owns columns no other event
+           %% writes, a dropped older write lost those columns for good
+           %% (mcl-chess#18). Do not split this back into one handler per event
+           %% type: the ordering is what makes the row correct, not the guard.
+           projection(game_lifecycle_to_games)]}}.
 
 projection(Module) ->
     #{id => Module,

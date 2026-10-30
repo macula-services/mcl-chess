@@ -45,8 +45,7 @@ setup() ->
     unlink(Query),
     Handlers = [start_handler(M) || M <- [emit_game_initiated_v1_to_mesh,
                                           emit_game_archived_v1_to_mesh,
-                                          game_initiated_v1_to_sqlite_games,
-                                          game_archived_v1_to_sqlite_games]],
+                                          game_lifecycle_to_games]],
     collector_clear(),
     {Dir, Started, Sub, ReadModel, Query, Handlers, Collector}.
 

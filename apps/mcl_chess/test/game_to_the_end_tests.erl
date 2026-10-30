@@ -64,11 +64,7 @@ setup() ->
                                           emit_game_ended_v1_to_mesh,
                                           on_seat_claimed_v1_maybe_start_game,
                                           on_move_played_v1_maybe_end_game,
-                                          game_initiated_v1_to_sqlite_games,
-                                          seat_claimed_v1_to_sqlite_games,
-                                          game_started_v1_to_sqlite_games,
-                                          move_played_v1_to_sqlite_games,
-                                          game_ended_v1_to_sqlite_games]],
+                                          game_lifecycle_to_games]],
     collector_clear(),
     {Dir, Started, Sub, ReadModel, Query, Handlers, Collector}.
 

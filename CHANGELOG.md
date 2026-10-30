@@ -46,26 +46,33 @@ entries ship in this release, unchanged, with the macula 18 migration on top.
   version, so the release guard would refuse the next tag and every box would
   have gone on reporting the older one. `mcl_chess_release_apps_tests` now reads the release tuple,
   every app it names and each app's .app.src, and fails when they disagree.
-- **A projection of an older event can no longer undo a newer one** (mcl-chess#18).
-  This service has one `evoq_event_handler` child per event type, and until
-  evoq 1.30 that was harmless because the router delivered to them in one pass.
-  evoq 1.30 gave every handler its own courier, so delivery is now ordered
-  within a handler and not across handlers (evoq#30) — and the ordering this
-  read model had relied on without saying so went away. evoq arrives through
-  mcl_om and is not pinned, so the same build fails on the previous commit
-  too: this is not the SDK migration, it is a dependency that moved under it.
-  `move_played_v1` and `game_ended_v1` are projected by two processes that do
-  not order themselves against each other, and every projection wrote the
-  `games` row unconditionally from its own event. The mate's last move, landing
-  after the end it caused, put the finished game back to `in progress` and left
-  it there — the events were right and only the read model was wrong, which is
-  what made it read as an
-  intermittently failing test rather than a lost write. Every write after the
-  birth now applies only when its event is newer than the row
-  (`AND version < ?`), and a redelivered birth does nothing
-  (`ON CONFLICT DO NOTHING`) instead of replacing a row that later events have
-  carried forward. `read_model_out_of_order_tests` applies a game's events
-  newest-first and then stale, and fails without the guard.
+- **A game's read model is written by one cursor, so a column can no longer be
+  lost** (mcl-chess#18). This service had one `evoq_event_handler` child per
+  event type, and until evoq 1.30 that was harmless because the router
+  delivered to them in one pass. evoq 1.30 gave every handler its own courier,
+  so delivery became ordered within a handler and not across handlers
+  (evoq#30) — and the ordering this read model had relied on without saying so
+  went away. evoq is declared here at `~> 1.27`, which admits 1.30, and no
+  `rebar.lock` is committed, so a rebuild resolved a different evoq and the
+  same commit that was green in the morning failed in the afternoon: this is
+  not the SDK migration, it is a dependency that moved under it. Two symptoms
+  followed. The mate's last move, landing after the end it caused, put the
+  finished game back to `in progress` and left it there, which made a lost
+  write read as a flaky test. And because each event owns columns no other
+  event writes — `started_at` only a start, `flagged_node_id` only a flag,
+  `to_move` only a move, the outcome only an end — a version guard alone did
+  not help: it dropped the older write whole, and that write's columns were
+  then gone for good, so an archived game could hold no outcome at all.
+  The seven per-event handlers are now **one** handler,
+  `game_lifecycle_to_games`, interested in all seven game events, so evoq's
+  per-handler ordering is an ordering over the game's own events and no column
+  is ever skipped. The `AND version < ?` guard stays, meaning only what it now
+  means: a redelivered event does not overwrite newer columns. The birth is
+  still the only INSERT and still does nothing on conflict.
+  `read_model_out_of_order_tests` asserts the structural claim (one handler,
+  all seven events) — the test that fails if anyone splits it again — checks
+  that the four column groups survive one game, and checks that a flag and the
+  end of the same command both land.
 
 ## [0.7.2] - 2026-10-20
 

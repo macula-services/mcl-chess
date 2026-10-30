@@ -106,9 +106,9 @@ the_query_selects_only_declared_columns() ->
 %% the same ply delivered twice is one row, not two.
 the_move_list_is_a_table_of_its_own() ->
     sentinel_row(),
-    [?assertEqual(ok, project(move_played_v1_to_sqlite_games, move(Ply, Uci)))
+    [?assertEqual(ok, project(move(Ply, Uci)))
      || {Ply, Uci} <- [{3, <<"g1f3">>}, {1, <<"e2e4">>}, {2, <<"e7e5">>}]],
-    ?assertEqual(ok, project(move_played_v1_to_sqlite_games, move(2, <<"c7c5">>))),
+    ?assertEqual(ok, project(move(2, <<"c7c5">>))),
     {ok, Game} = get_game_by_id:find(?GAME),
     ?assertEqual(#{<<"moves">> => [<<"e2e4">>, <<"c7c5">>, <<"g1f3">>]},
                  maps:with([<<"moves">>], Game)).
@@ -127,8 +127,8 @@ every_projection_writes_only_declared_columns() ->
     %% later event has already carried it forward), so the flow below would be
     %% read back through the sentinel's values rather than its own.
     ok = game_read_model_store:exec("DELETE FROM games WHERE game_id = ?", [?GAME]),
-    [?assertEqual({Projection, ok}, {Projection, project(Projection, Event)})
-     || {Projection, Event} <- game_flow()],
+    [?assertEqual({Type, ok}, {Type, project(Event)})
+     || {Type, Event} <- game_flow()],
     {ok, Game} = get_game_by_id:find(?GAME),
     ?assertEqual(<<"checkmate">>, maps:get(<<"end_reason">>, Game)),
     ?assertEqual(<<"winner">>, maps:get(<<"outcome">>, Game)),
@@ -138,13 +138,13 @@ every_projection_writes_only_declared_columns() ->
     ?assertEqual(1792435657980, maps:get(<<"started_at">>, Game)).
 
 game_flow() ->
-    [{game_initiated_v1_to_sqlite_games, initiated()},
-     {seat_claimed_v1_to_sqlite_games, claimed()},
-     {game_started_v1_to_sqlite_games, started()},
-     {move_played_v1_to_sqlite_games, move(1, <<"e2e4">>)},
-     {clock_flagged_v1_to_sqlite_games, flagged()},
-     {game_ended_v1_to_sqlite_games, ended()},
-     {game_archived_v1_to_sqlite_games, archived()}].
+    [{<<"game_initiated_v1">>, initiated()},
+     {<<"seat_claimed_v1">>, claimed()},
+     {<<"game_started_v1">>, started()},
+     {<<"move_played_v1">>, move(1, <<"e2e4">>)},
+     {<<"clock_flagged_v1">>, flagged()},
+     {<<"game_ended_v1">>, ended()},
+     {<<"game_archived_v1">>, archived()}].
 
 %%====================================================================
 %% The DDL, parsed for real
@@ -252,8 +252,9 @@ expected_row() ->
            <<"archived_at">> => 120,
            <<"moves">> => []}}.
 
-project(Module, Event) ->
-    case Module:handle_event(maps:get(event_type, Event), Event, #{}, #{}) of
+project(Event) ->
+    case game_lifecycle_to_games:handle_event(
+           maps:get(event_type, Event), Event, #{}, #{}) of
         {ok, _State} -> ok;
         {error, Reason} -> {error, Reason}
     end.
