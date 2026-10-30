@@ -121,6 +121,12 @@ the_move_list_is_a_table_of_its_own() ->
 %% the DDL creates. A column name the DDL does not declare comes back as a store
 %% error rather than a green test, which is the point of the exercise.
 every_projection_writes_only_declared_columns() ->
+    %% From no game at all: the birth is what creates the row, and the query
+    %% test above leaves a sentinel row under the same id. A birth projected
+    %% onto an existing row writes nothing (`ON CONFLICT DO NOTHING', because a
+    %% later event has already carried it forward), so the flow below would be
+    %% read back through the sentinel's values rather than its own.
+    ok = game_read_model_store:exec("DELETE FROM games WHERE game_id = ?", [?GAME]),
     [?assertEqual({Projection, ok}, {Projection, project(Projection, Event)})
      || {Projection, Event} <- game_flow()],
     {ok, Game} = get_game_by_id:find(?GAME),
@@ -253,27 +259,27 @@ project(Module, Event) ->
     end.
 
 initiated() ->
-    event(<<"game_initiated_v1">>,
+    event(<<"game_initiated_v1">>, 0,
           #{game_id => ?GAME, protocol => <<"chess">>, time_control => {60000, 0},
             seats => #{white => <<>>, black => <<>>}, position => ?INITIAL,
             to_move => <<"w">>, ply => 0, clocks => #{white => 60000, black => 60000},
             status => 3, initiator_node_id => <<"a1b2">>, at_ms => 1792435657965}).
 
 claimed() ->
-    event(<<"seat_claimed_v1">>,
+    event(<<"seat_claimed_v1">>, 1,
           #{game_id => ?GAME, player_node_id => <<"b2c3">>, color => <<"b">>,
             seats => #{white => <<"a1b2">>, black => <<"b2c3">>}, status => 3,
             at_ms => 1792435657970}).
 
 started() ->
-    event(<<"game_started_v1">>,
+    event(<<"game_started_v1">>, 2,
           #{game_id => ?GAME, white_node_id => <<"a1b2">>, black_node_id => <<"b2c3">>,
             position => ?INITIAL, position_hash => 424242, to_move => <<"w">>, ply => 0,
             clocks => #{white => 60000, black => 60000}, status => 5,
             at_ms => 1792435657980}).
 
 move(Ply, Uci) ->
-    event(<<"move_played_v1">>,
+    event(<<"move_played_v1">>, 2 + Ply,
           #{game_id => ?GAME, player_node_id => <<"a1b2">>, move => Uci, ply => Ply,
             fen_after => <<"rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1">>,
             position_hash => 424243, halfmove_clock => 0, repetitions => 1,
@@ -281,13 +287,13 @@ move(Ply, Uci) ->
             status => 5, at_ms => 1792435657990}).
 
 flagged() ->
-    event(<<"clock_flagged_v1">>,
+    event(<<"clock_flagged_v1">>, 4,
           #{game_id => ?GAME, player_node_id => <<"a1b2">>,
             clocks => #{white => 0, black => 60000}, status => 5,
             at_ms => 1792435657995}).
 
 ended() ->
-    event(<<"game_ended_v1">>,
+    event(<<"game_ended_v1">>, 5,
           #{game_id => ?GAME, outcome => winner, winner_node_id => <<"b2c3">>,
             reason => checkmate,
             fen_after => <<"rnb1kbnr/pppp1ppp/8/4p3/6Pq/5P2/PPPPP2P/RNBQKBNR w KQkq - 1 3">>,
@@ -295,12 +301,14 @@ ended() ->
             at_ms => 1792435658000}).
 
 archived() ->
-    event(<<"game_archived_v1">>,
+    event(<<"game_archived_v1">>, 6,
           #{game_id => ?GAME, reason => <<"searching">>, status => 17,
             at_ms => 1792435744000}).
 
 %% The projections read `data' when the store hands them a wrapped event, and the
-%% event's own id and version: this is that shape.
-event(Type, Data) ->
+%% event's own id and version: this is that shape. The version is the event's
+%% place in its stream, which is what a projection guards its write on, so each
+%% fixture above carries the one the stream really gives it (mcl-chess#18).
+event(Type, Version, Data) ->
     #{event_type => Type, data => Data,
-      event_id => <<"event-0123456789abcdef0123456789abcdef">>, version => 7}.
+      event_id => <<"event-0123456789abcdef0123456789abcdef">>, version => Version}.

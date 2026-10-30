@@ -5,6 +5,12 @@
 %% which is what makes a finished game readable at a glance: `status' says the
 %% game is over, `outcome' and `end_reason' say how. A draw names no winner, and
 %% its `winner_node_id' column stays empty rather than absent.
+%%
+%% The write is guarded on the event's own stream version, as every projection
+%% after the birth is. evoq delivers each event type on its own cursor, so the
+%% mate's last move can be projected after the end it caused; unguarded, that
+%% move put the finished game back to `in progress' and it stayed there until
+%% the row was rebuilt (mcl-chess#18).
 -module(game_ended_v1_to_sqlite_games).
 
 -behaviour(evoq_event_handler).
@@ -28,13 +34,14 @@ handle_event(_EventType, Event, _Metadata, State) ->
 upsert(Data, Event) ->
     GameId = maps:get(game_id, Data),
     Status = maps:get(status, Data),
+    Version = maps:get(version, Event, 0),
     #{white := WhiteMs, black := BlackMs} = maps:get(clocks, Data),
     updated(GameId,
             game_read_model_store:exec(
               "UPDATE games SET position = ?, ply = ?, white_clock_ms = ?,"
               " black_clock_ms = ?, status = ?, status_label = ?, outcome = ?,"
               " end_reason = ?, winner_node_id = ?, ended_at = ?,"
-              " event_id = ?, version = ? WHERE game_id = ?",
+              " event_id = ?, version = ? WHERE game_id = ? AND version < ?",
               [maps:get(fen_after, Data),
                maps:get(ply, Data),
                WhiteMs,
@@ -46,8 +53,9 @@ upsert(Data, Event) ->
                maps:get(winner_node_id, Data, <<>>),
                maps:get(at_ms, Data, 0),
                maps:get(event_id, Event),
-               maps:get(version, Event, 0),
-               GameId])).
+               Version,
+               GameId,
+               Version])).
 
 %% The event stores an atom; the column is text, the same spelling a fact
 %% carries.

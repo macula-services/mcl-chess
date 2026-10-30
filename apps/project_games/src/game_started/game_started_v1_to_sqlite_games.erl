@@ -6,6 +6,10 @@
 %% that disagreed with its claims would show the disagreements rather than hide
 %% them.
 %%
+%% The write is guarded on the event's own stream version: a start projected
+%% after the end it precedes must not put the row back to `started'. Only a
+%% stale write loses, so the guard costs a game nothing (mcl-chess#18).
+%%
 %% `started_at' is the event's own `at_ms', the same clock reading the per-game
 %% deadline is set from, so a reader of the row and a reader of the clock agree
 %% on when the game began (mcl-chess#3).
@@ -35,19 +39,21 @@ handle_event(_EventType, Event, _Metadata, State) ->
 upsert(Data, Event) ->
     GameId = maps:get(game_id, Data),
     Status = maps:get(status, Data),
+    Version = maps:get(version, Event, 0),
     updated(GameId,
             game_read_model_store:exec(
               "UPDATE games SET white_node_id = ?, black_node_id = ?,"
               " status = ?, status_label = ?, started_at = ?, event_id = ?, version = ?"
-              " WHERE game_id = ?",
+              " WHERE game_id = ? AND version < ?",
               [maps:get(white_node_id, Data),
                maps:get(black_node_id, Data),
                Status,
                game_status:to_string(Status),
                maps:get(at_ms, Data),
                maps:get(event_id, Event),
-               maps:get(version, Event, 0),
-               GameId])).
+               Version,
+               GameId,
+               Version])).
 
 %% An UPDATE that matched no row is a fault, not a success: ask whether the row
 %% is there and hand a missing one back as a retryable store error.

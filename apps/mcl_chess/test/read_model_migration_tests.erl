@@ -103,19 +103,22 @@ project(Module, Event) ->
     end.
 
 initiated() ->
-    event(<<"game_initiated_v1">>,
+    event(<<"game_initiated_v1">>, 0,
           #{game_id => ?GAME, protocol => <<"chess">>, time_control => {60000, 0},
             seats => #{white => <<>>, black => <<>>}, position => ?INITIAL,
             to_move => <<"w">>, ply => 0, clocks => #{white => 60000, black => 60000},
             status => 3, initiator_node_id => <<"a1b2">>, at_ms => 1792435657965}).
 
 started() ->
-    event(<<"game_started_v1">>,
+    event(<<"game_started_v1">>, 3,
           #{game_id => ?GAME, white_node_id => <<"a1b2">>, black_node_id => <<"b2c3">>,
             position => ?INITIAL, position_hash => 424242, to_move => <<"w">>, ply => 0,
             clocks => #{white => 60000, black => 60000}, status => 5,
             at_ms => 1792435657980}).
 
-event(Type, Data) ->
+%% The version is the event's place in the stream, which is what a projection
+%% guards its write on: the birth is version 0 and the start follows the two
+%% claims, at 3 (mcl-chess#18).
+event(Type, Version, Data) ->
     #{event_type => Type, data => Data,
-      event_id => <<"event-0123456789abcdef0123456789abcdef">>, version => 7}.
+      event_id => <<"event-0123456789abcdef0123456789abcdef">>, version => Version}.

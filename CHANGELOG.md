@@ -46,6 +46,19 @@ entries ship in this release, unchanged, with the macula 18 migration on top.
   version, so the release guard would refuse the next tag and every box would
   have gone on reporting the older one. `mcl_chess_release_apps_tests` now reads the release tuple,
   every app it names and each app's .app.src, and fails when they disagree.
+- **A projection of an older event can no longer undo a newer one** (mcl-chess#18).
+  evoq gives each event type its own handler cursor, so `move_played_v1` and
+  `game_ended_v1` are projected by two processes that do not order themselves
+  against each other, and every projection wrote the `games` row unconditionally
+  from its own event. The mate's last move, landing after the end it caused, put
+  the finished game back to `in progress` and left it there — the events were
+  right and only the read model was wrong, which is what made it read as an
+  intermittently failing test rather than a lost write. Every write after the
+  birth now applies only when its event is newer than the row
+  (`AND version < ?`), and a redelivered birth does nothing
+  (`ON CONFLICT DO NOTHING`) instead of replacing a row that later events have
+  carried forward. `read_model_out_of_order_tests` applies a game's events
+  newest-first and then stale, and fails without the guard.
 
 ## [0.7.2] - 2026-10-20
 

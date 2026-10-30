@@ -1,8 +1,14 @@
 %% @doc Projects game_initiated_v1 into the games table.
 %%
-%% Idempotent by construction: INSERT OR REPLACE keyed on the stream id, the
-%% row carrying the applied position (event_id, version). The status label is
-%% computed HERE, from the event's own status integer, and never by a client.
+%% Idempotent by construction: keyed on the stream id, the row carrying the
+%% applied position (event_id, version). The status label is computed HERE, from
+%% the event's own status integer, and never by a client.
+%%
+%% The birth is the stream's version 0 and creates the row, so a second delivery
+%% of it has nothing to add: `DO NOTHING' rather than `INSERT OR REPLACE', which
+%% would rewrite a row that later events have already carried forward. The
+%% projections after the birth say the same thing from their side with
+%% `AND version < ?' (mcl-chess#18).
 -module(game_initiated_v1_to_sqlite_games).
 
 -behaviour(evoq_event_handler).
@@ -34,7 +40,8 @@ upsert(Data, Event) ->
       "  black_node_id, position, to_move, ply, white_clock_ms,"
       "  black_clock_ms, status, status_label, initiator, archive_reason,"
       "  initiated_at, archived_at, event_id, version)"
-      " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, NULL, ?, ?)",
+      " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, NULL, ?, ?)"
+      " ON CONFLICT(game_id) DO NOTHING",
       [maps:get(game_id, Data),
        maps:get(protocol, Data),
        Initial,

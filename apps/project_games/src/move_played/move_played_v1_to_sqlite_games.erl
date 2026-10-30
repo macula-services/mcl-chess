@@ -13,6 +13,11 @@
 %% (philosophy/STATUS_LABELS_IN_PROJECTIONS.md). A move changes no flag, so the
 %% label it writes is the one the game already had, and that is still the right
 %% place to compute it.
+%%
+%% The games row is guarded on the event's own stream version: the last move of
+%% a game can be projected after the end it produced, and an unguarded write
+%% put a finished game back to `in progress' (mcl-chess#18). The move row needs
+%% no such guard; it is keyed by ply, and every ply is its own fact.
 -module(move_played_v1_to_sqlite_games).
 
 -behaviour(evoq_event_handler).
@@ -47,13 +52,14 @@ move_in(Data) ->
 upsert(Data, Event) ->
     GameId = maps:get(game_id, Data),
     Status = maps:get(status, Data),
+    Version = maps:get(version, Event, 0),
     #{white := WhiteMs, black := BlackMs} = maps:get(clocks, Data),
     updated(GameId,
             game_read_model_store:exec(
               "UPDATE games SET position = ?, to_move = ?, ply = ?,"
               " white_clock_ms = ?, black_clock_ms = ?, halfmove_clock = ?,"
               " status = ?, status_label = ?, event_id = ?, version = ?"
-              " WHERE game_id = ?",
+              " WHERE game_id = ? AND version < ?",
               [maps:get(fen_after, Data),
                maps:get(to_move, Data),
                maps:get(ply, Data),
@@ -63,8 +69,9 @@ upsert(Data, Event) ->
                Status,
                game_status:to_string(Status),
                maps:get(event_id, Event),
-               maps:get(version, Event, 0),
-               GameId])).
+               Version,
+               GameId,
+               Version])).
 
 %% An UPDATE that matched no row is a fault, not a success: ask whether the row
 %% is there and hand a missing one back as a retryable store error.
